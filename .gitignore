@@ -1,0 +1,16 @@
+# Compiled binaries
+out/
+target/
+*.class
+
+# IntelliJ IDEA metadata
+.idea/
+*.iml
+*.iws
+*.ipr
+
+# Encrypted Hospital Storage & Backups (CRITICAL)
+*.enc
+*.tmp
+*.bak
+backups/

@@ -1,7 +1,0 @@
-*.dat
-*.txt
-*.class
-/bin
-/out
-.idea
-*.iml
