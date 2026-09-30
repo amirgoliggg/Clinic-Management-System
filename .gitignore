@@ -1,16 +1,32 @@
-# Compiled binaries
-out/
 target/
-*.class
+!.mvn/wrapper/maven-wrapper.jar
+!**/src/main/**/target/
+!**/src/test/**/target/
 
-# IntelliJ IDEA metadata
-.idea/
-*.iml
+### STS ###
+.apt_generated
+.classpath
+.factorypath
+.project
+.settings
+.springBeans
+.sts4-cache
+
+### IntelliJ IDEA ###
+.idea
 *.iws
+*.iml
 *.ipr
+out/
+!**/src/main/**/out/
+!**/src/test/**/out/
 
-# Encrypted Hospital Storage & Backups (CRITICAL)
-*.enc
-*.tmp
-*.bak
-backups/
+### Database & Logs ###
+data/
+*.log
+*.h2.db
+*.trace.db
+
+### OS Generated ###
+.DS_Store
+Thumbs.db
