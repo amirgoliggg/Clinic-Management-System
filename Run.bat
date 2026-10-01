@@ -1,25 +1,35 @@
 @echo off
-chcp 65001 >nul
-title سامانه جامع درمانگاه
+title Clinic Management System
+cd /d "%~dp0"
 
 echo ===================================================
-echo   درحال آماده‌سازی و اجرای سامانه درمانگاه...
+echo   Starting Clinic Management System...
 echo ===================================================
 
-:: بررسی نصب بودن جاوا
-where java >nul 2>nul
-if %errorlevel% neq 0 (
-    echo [خطا] جاوا روی سیستم شما یافت نشد! لطفاً JDK 17 یا بالاتر را نصب کنید.
-    pause
-    exit /b
-)
+set "APP_JAR="
+for %%f in (target\*.jar) do set "APP_JAR=%%f"
 
-:: اجرای برنامه با Maven Wrapper (نیازی به نصب دستی Maven نیست)
+if "%APP_JAR%"=="" goto NO_JAR
+
+echo Found application: %APP_JAR%
+echo Starting server...
+echo.
+
 start http://localhost:8080
-if exist "mvnw.cmd" (
-    call mvnw.cmd spring-boot:run
-) else (
-    mvn spring-boot:run
-)
+java -jar "%APP_JAR%"
 
 pause
+exit /b
+
+:NO_JAR
+echo.
+echo [ERROR] No jar file found inside target folder!
+echo.
+echo You must build the project first:
+echo 1. Open IntelliJ
+echo 2. Click Maven tab on the right side
+echo 3. Open Lifecycle
+echo 4. Double click on package
+echo.
+pause
+exit /b
