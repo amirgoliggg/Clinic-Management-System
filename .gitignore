@@ -1,0 +1,30 @@
+# خروجی‌های کامپایل و بیلد (Maven & IntelliJ)
+target/
+out/
+build/
+*.class
+*.jar
+*.war
+
+# تنظیمات محیط توسعه (IntelliJ IDEA & VSCode & Eclipse)
+.idea/
+*.iml
+*.iws
+*.ipr
+.vscode/
+.settings/
+.project
+.classpath
+
+# فایل‌های پایگاه داده محلی (H2 Database)
+data/
+*.mv.db
+*.trace.db
+*.lock.db
+
+# لاگ‌ها و فایل‌های موقت سیستم‌عامل
+*.log
+logs/
+.DS_Store
+Thumbs.db
+Desktop.ini
