@@ -1,0 +1,881 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>سامانه جامع مدیریت درمانگاه | Enterprise Clinical Suite v3.0</title>
+    <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+
+<div id="toast-container" role="status" aria-live="polite" aria-atomic="true"></div>
+
+<!-- ==================== پنجره رسمی ورود به سامانه ==================== -->
+<div id="auth-overlay">
+    <div class="auth-card">
+        <div class="auth-logo">✚</div>
+        <div class="auth-title">سامانه هوشمند مدیریت درمانگاه</div>
+        <div class="auth-subtitle">پلتفرم یکپارچه بالینی، مالی و حسابرسی رمزنگاری‌شده (Enterprise Suite v3.0)</div>
+
+        <div id="auth-error-box" class="auth-error" role="alert"></div>
+
+        <form id="auth-login-form" onsubmit="event.preventDefault(); submitLogin();">
+            <div class="form-group" style="margin-bottom: 14px;">
+                <label for="login-user">نام کاربری ایستگاه کاری</label>
+                <input type="text" id="login-user" autocomplete="username" required maxlength="64" placeholder="نام کاربری خود را وارد کنید...">
+            </div>
+            <div class="form-group" style="margin-bottom: 20px;">
+                <label for="login-pass">رمز عبور</label>
+                <input type="password" id="login-pass" autocomplete="current-password" required maxlength="128" placeholder="رمز عبور خود را وارد کنید...">
+            </div>
+            <button type="submit" class="action-btn" style="width: 100%; padding: 13px; font-size: 0.94rem;">
+                🔐 ورود امن به شبکه کلینیک
+            </button>
+        </form>
+
+        <div class="quick-role-pills">
+            <button type="button" class="role-pill-btn" onclick="fillQuickCredentials('admin','Admin@123')">🛡️ مدیر ارشد</button>
+            <button type="button" class="role-pill-btn" onclick="fillQuickCredentials('doctor','Doctor@123')">🩺 پزشک</button>
+            <button type="button" class="role-pill-btn" onclick="fillQuickCredentials('nurse','Nurse@123')">💉 پرستار</button>
+            <button type="button" class="role-pill-btn" onclick="fillQuickCredentials('cashier','Cashier@123')">💳 صندوق‌دار</button>
+            <button type="button" class="role-pill-btn" onclick="fillQuickCredentials('receptionist','Reception@123')">📋 پذیرش</button>
+            <button type="button" class="role-pill-btn" onclick="fillQuickCredentials('finance','Finance@123')">📊 مدیر مالی</button>
+        </div>
+
+        <div style="margin-top: 20px; padding-top: 14px; border-top: 1px solid var(--glass-border); display: flex; justify-content: space-between; font-size: 0.73rem; color: var(--text-muted);">
+            <span>🔒 قفل نشست LAN + رمزنگاری AES-256-GCM</span>
+            <span style="font-family: monospace;">HMAC-SHA256</span>
+        </div>
+    </div>
+</div>
+
+<!-- ==================== مدال چاپ فاکتور رسمی ==================== -->
+<div id="receipt-modal" class="modal-backdrop">
+    <div class="modal-card">
+        <div class="modal-header">
+            <h3>🧾 صورتحساب تفصیلی و رسید رسمی درمانگاه</h3>
+            <button type="button" class="action-btn btn-secondary btn-sm" onclick="closeModal('receipt-modal')">بستن ✕</button>
+        </div>
+        <div id="receipt-print-body" style="line-height: 2; font-size: 0.87rem;"></div>
+        <div style="margin-top: 18px; display: flex; justify-content: flex-end; gap: 8px;">
+            <button type="button" class="action-btn btn-success" onclick="window.print()">🖨️ چاپ فاکتور رسمی / ذخیره PDF</button>
+        </div>
+    </div>
+</div>
+
+<!-- ==================== مدال سوابق پزشکی ==================== -->
+<div id="history-modal" class="modal-backdrop">
+    <div class="modal-card">
+        <div class="modal-header">
+            <h3 id="history-modal-title">📂 سوابق بالینی بیمار</h3>
+            <button type="button" class="action-btn btn-secondary btn-sm" onclick="closeModal('history-modal')">بستن ✕</button>
+        </div>
+        <div id="history-records-list"></div>
+
+        <div class="sub-box" id="amend-form-box" style="display:none; margin-top:16px;">
+            <h4>✏️ ثبت الحاقیه و اصلاح پرونده پزشکی (Amend Record)</h4>
+            <input type="hidden" id="amend-record-id">
+            <div class="form-grid" style="margin-top:12px;">
+                <div class="form-group"><label>تشخیص اصلاح‌شده</label><input type="text" id="amend-diag"></div>
+                <div class="form-group"><label>نسخه اصلاح‌شده</label><input type="text" id="amend-rx"></div>
+                <div class="form-group"><label>علت اصلاح پرونده</label><input type="text" id="amend-reason"></div>
+            </div>
+            <button type="button" class="action-btn btn-success btn-sm" onclick="submitAmendRecord()">✅ ثبت نهایی الحاقیه</button>
+        </div>
+    </div>
+</div>
+
+<!-- ==================== نوار کناری شناور ==================== -->
+<aside>
+    <div class="sidebar-brand">
+        <div class="brand-icon">✚</div>
+        <div>
+            <div style="font-weight:800; font-size:1.04rem; color:var(--text-main);">کلینیک هوشمند</div>
+            <div style="font-size:0.73rem; color:var(--primary); font-weight:800;">Enterprise Suite v3.0</div>
+        </div>
+    </div>
+
+    <div class="nav-list">
+        <button type="button" class="nav-btn" id="nav-intake" onclick="switchNav('intake')">📋 پذیرش، تریاژ و ترخیص</button>
+        <button type="button" class="nav-btn" id="nav-clinical" onclick="switchNav('clinical')">🩺 اتاق معاینه پزشک</button>
+        <button type="button" class="nav-btn" id="nav-billing" onclick="switchNav('billing')">💳 صندوق و ترازنامه مالی</button>
+        <button type="button" class="nav-btn" id="nav-staff" onclick="switchNav('staff')">👥 مدیریت پرسنل و نقش‌ها</button>
+        <button type="button" class="nav-btn" id="nav-audit" onclick="switchNav('audit')">🛡️ حسابرسی امنیتی</button>
+    </div>
+
+    <div class="sidebar-footer">
+        <span><span class="status-dot"></span>شبکه LAN ایمن</span>
+        <span style="font-family:monospace; color:var(--primary-bright);">AES-256</span>
+    </div>
+</aside>
+
+<!-- ==================== فضای کاری اصلی ==================== -->
+<main>
+    <header>
+        <div class="quick-switch-bar">
+            <span class="status-dot"></span>
+            <span style="font-size:0.77rem; color:var(--text-secondary); font-weight:800;">
+                نشست قفل‌شده روی IP ایستگاه کاری | رمزنگاری دیتابیس: AES-256-GCM &amp; HMAC-SHA256
+            </span>
+        </div>
+
+        <div class="header-right">
+            <span id="live-jalali-clock" style="font-size:0.8rem; color:var(--text-secondary); font-weight:700;"></span>
+            <button type="button" class="action-btn btn-secondary btn-sm" onclick="toggleTheme()" id="theme-btn">☀️ تم روشن</button>
+            <b id="current-user-name" style="font-size:0.88rem; color:var(--text-main);">-</b>
+            <span class="role-tag" id="current-user-role">-</span>
+            <button type="button" class="action-btn btn-danger btn-sm" onclick="submitLogout()">خروج</button>
+        </div>
+    </header>
+
+    <div class="workflow-stepper">
+        <div class="step-item" onclick="switchNav('intake')">
+            <div class="step-num">۱</div>
+            <div class="step-info">
+                <h5>پذیرش و تریاژ بالینی</h5>
+                <p>ثبت بیمار، علائم حیاتی و خدمات پرستاری</p>
+            </div>
+        </div>
+        <div class="step-item" onclick="switchNav('clinical')">
+            <div class="step-num">۲</div>
+            <div class="step-info">
+                <h5>معاینه تخصصی پزشک</h5>
+                <p>ثبت تشخیص، نسخه و ارجاع خودکار به صندوق</p>
+            </div>
+        </div>
+        <div class="step-item" onclick="switchNav('billing')">
+            <div class="step-num">۳</div>
+            <div class="step-info">
+                <h5>صندوق و ترازنامه مالی</h5>
+                <p>تسویه، تخفیف، استرداد و گزارش تفصیلی</p>
+            </div>
+        </div>
+        <div class="step-item" onclick="switchNav('intake')">
+            <div class="step-num">۴</div>
+            <div class="step-info">
+                <h5>ترخیص رسمی بیمار</h5>
+                <p>تایید نهایی تسویه و خروج از درمانگاه</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== ۱. پنل پذیرش، تریاژ پرستار و ترخیص ==================== -->
+    <div id="panel-intake" class="section-panel">
+        <div class="sub-header">
+            <h3>📋 ایستگاه پذیرش، تریاژ پرستاری و پایش جریان بیماران</h3>
+            <button type="button" class="action-btn btn-secondary btn-sm" onclick="loadQueue(); loadReadyForDischarge();">🔄 همگام‌سازی زنده صف</button>
+        </div>
+
+        <div class="analytics-grid">
+            <div class="chart-card">
+                <div class="chart-card-header">
+                    <span class="chart-card-title">📊 نمودار حلقوی جریان فعلی بیماران</span>
+                </div>
+                <div id="intake-pipeline-chart"></div>
+            </div>
+            <div class="chart-card">
+                <div class="chart-card-header">
+                    <span class="chart-card-title">🩸 توزیع گروه خونی بیماران حاضر در صف</span>
+                </div>
+                <div id="intake-blood-chart"></div>
+            </div>
+        </div>
+
+        <div class="sub-box">
+            <h4>➕ ثبت پذیرش بیمار جدید</h4>
+            <div class="form-grid" style="margin-top:12px;">
+                <div class="form-group">
+                    <label>کد ملی بیمار (عددی)</label>
+                    <input type="text" id="p-nid" placeholder="مثلاً: 1001234567">
+                </div>
+                <div class="form-group">
+                    <label>نام و نام خانوادگی</label>
+                    <input type="text" id="p-name" placeholder="نام کامل بیمار">
+                </div>
+                <div class="form-group">
+                    <label>سن</label>
+                    <input type="number" id="p-age" value="30" min="0" max="150">
+                </div>
+                <div class="form-group">
+                    <label>شماره تماس</label>
+                    <input type="text" id="p-phone" value="09121112233">
+                </div>
+                <div class="form-group">
+                    <label>گروه خونی</label>
+                    <select id="p-blood">
+                        <option value="O_POSITIVE">O+</option>
+                        <option value="O_NEGATIVE">O-</option>
+                        <option value="A_POSITIVE">A+</option>
+                        <option value="A_NEGATIVE">A-</option>
+                        <option value="B_POSITIVE">B+</option>
+                        <option value="B_NEGATIVE">B-</option>
+                        <option value="AB_POSITIVE">AB+</option>
+                        <option value="AB_NEGATIVE">AB-</option>
+                        <option value="UNKNOWN">نامشخص</option>
+                    </select>
+                </div>
+            </div>
+            <button type="button" class="action-btn" onclick="registerPatient()">➕ ثبت پذیرش بیمار در صف</button>
+        </div>
+
+        <div class="sub-box" id="nurse-triage-box" style="display:none; border-color: var(--glass-border-strong);">
+            <div class="sub-header">
+                <h4>💉 ایستگاه تریاژ بالینی، پایش علائم حیاتی و خدمات پرستاری</h4>
+            </div>
+
+            <div class="vitals-gauge-strip">
+                <div class="vital-Readout-pill">
+                    <span>🩸 وضعیت فشار خون:</span>
+                    <span id="vital-bp-status" class="vital-status-tag badge-success">نرمال (120/80)</span>
+                </div>
+                <div class="vital-Readout-pill">
+                    <span>🌡️ وضعیت دمای بدن:</span>
+                    <span id="vital-temp-status" class="vital-status-tag badge-success">طبیعی (37.0°C)</span>
+                </div>
+                <div class="vital-Readout-pill">
+                    <span>❤️ وضعیت ضربان قلب:</span>
+                    <span id="vital-hr-status" class="vital-status-tag badge-success">ریتم نرمال (76 bpm)</span>
+                </div>
+            </div>
+
+            <div class="form-grid">
+                <div class="form-group">
+                    <label>کد ملی بیمار</label>
+                    <input type="text" id="t-nid" placeholder="انتخاب از جدول یا ورود کد ملی">
+                </div>
+                <div class="form-group">
+                    <label>فشار خون (سیستول/دیاستول)</label>
+                    <input type="text" id="t-bp" value="120/80" oninput="evaluateLiveVitals()">
+                </div>
+                <div class="form-group">
+                    <label>دمای بدن (°C)</label>
+                    <input type="number" id="t-temp" step="0.1" value="37.0" min="30" max="45" oninput="evaluateLiveVitals()">
+                </div>
+                <div class="form-group">
+                    <label>ضربان قلب (BPM)</label>
+                    <input type="number" id="t-hr" value="76" min="20" max="250" oninput="evaluateLiveVitals()">
+                </div>
+                <div class="form-group">
+                    <label>شکایت اصلی بیمار</label>
+                    <input type="text" id="t-complaint" placeholder="مثلاً: سرگیجه، تب، درد قفسه سینه...">
+                </div>
+                <div class="form-group">
+                    <label>یادداشت پرستار</label>
+                    <input type="text" id="t-notes" placeholder="ارزیابی اولیه پرستار...">
+                </div>
+            </div>
+            <button type="button" class="action-btn btn-success" onclick="submitNurseTriage()">🩺 ثبت پرونده تریاژ و علائم حیاتی</button>
+
+            <hr style="border:none; border-top:1px dashed var(--glass-border); margin:18px 0;">
+
+            <h4>🩹 ثبت خدمات پرستاری و تزریقات (افزودن خودکار تعرفه به صورتحساب بیمار)</h4>
+            <div class="form-grid" style="margin-top:12px;">
+                <div class="form-group">
+                    <label>کد ملی بیمار</label>
+                    <input type="text" id="nc-nid" placeholder="کد ملی بیمار...">
+                </div>
+                <div class="form-group">
+                    <label>شرح خدمت پرستاری</label>
+                    <input type="text" id="nc-procedure" placeholder="مثلاً: سرم‌تراپی، پانسمان استریل، نوار قلب (ECG)">
+                </div>
+                <div class="form-group">
+                    <label>تعرفه خدمت پرستاری ($)</label>
+                    <input type="number" id="nc-fee" step="0.01" min="0" value="45.00">
+                </div>
+                <div class="form-group">
+                    <label>توضیحات مراقبت پرستاری</label>
+                    <input type="text" id="nc-notes" placeholder="بدون حساسیت دارویی...">
+                </div>
+            </div>
+            <button type="button" class="action-btn" onclick="submitNursingCare()">➕ ثبت خدمت پرستاری و منظور در صورتحساب</button>
+        </div>
+
+        <div class="sub-box">
+            <div class="sub-header">
+                <h4>🔍 استعلام وضعیت و پذیرش مجدد بیمار قبلی</h4>
+            </div>
+            <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+                <input type="text" id="lookup-p-nid" placeholder="کد ملی بیمار..." style="width:240px;">
+                <button type="button" class="action-btn btn-secondary btn-sm" onclick="lookupPatientQuick()">🔍 استعلام فوری</button>
+                <button type="button" class="action-btn btn-sm" onclick="reCheckInPatient()">🔄 پذیرش مجدد به صف پزشک</button>
+                <span id="lookup-p-result" style="font-size:0.88rem; font-weight:800; color:var(--primary-bright);"></span>
+            </div>
+        </div>
+
+        <div class="sub-box">
+            <div class="sub-header">
+                <h4>⏳ صف انتظار معاینه پزشک (WAITING_FOR_DOCTOR)</h4>
+                <div style="display:flex; gap:8px;">
+                    <input type="text" placeholder="جستجو در صف..." oninput="filterTable('queue-table', this.value)" style="padding:7px 16px; font-size:0.81rem; width:210px;">
+                    <button type="button" class="action-btn btn-secondary btn-sm" onclick="loadQueue()">🔄 بروزرسانی</button>
+                </div>
+            </div>
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                    <tr>
+                        <th>شناسه پرونده</th>
+                        <th>کد ملی</th>
+                        <th>نام بیمار</th>
+                        <th>گروه خونی</th>
+                        <th>وضعیت</th>
+                        <th>بدهی جاری</th>
+                        <th>عملیات</th>
+                    </tr>
+                    </thead>
+                    <tbody id="queue-table"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="sub-box">
+            <div class="sub-header">
+                <h4>✅ بیماران تسویه‌شده آماده ترخیص (PAYMENT_COMPLETED)</h4>
+                <button type="button" class="action-btn btn-secondary btn-sm" onclick="loadReadyForDischarge()">🔄 بروزرسانی</button>
+            </div>
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                    <tr>
+                        <th>کد ملی</th>
+                        <th>نام بیمار</th>
+                        <th>پزشک معالج</th>
+                        <th>وضعیت تسویه</th>
+                        <th>عملیات ترخیص</th>
+                    </tr>
+                    </thead>
+                    <tbody id="discharge-table"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== ۲. پنل معاینه پزشک ==================== -->
+    <div id="panel-clinical" class="section-panel">
+        <div class="sub-header">
+            <h3>🩺 میز کار بالینی پزشک و تحلیل جمعیت‌شناختی بیماران</h3>
+            <button type="button" class="action-btn btn-secondary btn-sm" onclick="loadDoctorQueue()">🔄 بروزرسانی صف</button>
+        </div>
+
+        <div class="analytics-grid">
+            <div class="chart-card">
+                <div class="chart-card-header">
+                    <span class="chart-card-title">👥 تفکیک رده سنی بیماران منتظر در صف</span>
+                </div>
+                <div id="doctor-demographics-chart"></div>
+            </div>
+            <div class="chart-card">
+                <div class="chart-card-header">
+                    <span class="chart-card-title">📈 تراز ظرفیت شیفت روزانه پزشک</span>
+                </div>
+                <div id="doctor-capacity-chart"></div>
+            </div>
+        </div>
+
+        <div class="table-wrap">
+            <table>
+                <thead>
+                <tr>
+                    <th>شناسه</th>
+                    <th>کد ملی</th>
+                    <th>نام بیمار</th>
+                    <th>سن</th>
+                    <th>گروه خونی</th>
+                    <th>عملیات پزشک</th>
+                </tr>
+                </thead>
+                <tbody id="doctor-queue-table"></tbody>
+            </table>
+        </div>
+
+        <div class="sub-box">
+            <div class="sub-header">
+                <h4>📝 ثبت معاینه بالینی و نسخه الکترونیک (مجهز به رمزنگاری AES-256-GCM)</h4>
+                <button type="button" class="action-btn btn-secondary btn-sm" onclick="openPatientHistoryFromInput()">📂 مشاهده سوابق و تریاژ بیمار</button>
+            </div>
+
+            <div class="template-chips">
+                <span style="font-size:0.79rem; color:var(--text-secondary); font-weight:800; align-self:center;">⚡ قالب‌های آماده نسخه:</span>
+                <button type="button" class="tpl-chip" onclick="applyClinicalTemplate('سرماخوردگی و عفونت تنفسی فوقانی', 'آزیترومایسین ۵۰۰ | استامینوفن | سرم شستشو', 'استراحت ۳ روزه و مصرف مایعات گرم')">سرماخوردگی</button>
+                <button type="button" class="tpl-chip" onclick="applyClinicalTemplate('پرفشاری خون اولیه (Hypertension)', 'لوزارتان ۲۵ | آملودیپین ۵', 'رژیم کم‌نمک و پایش روزانه فشار خون')">فشار خون</button>
+                <button type="button" class="tpl-chip" onclick="applyClinicalTemplate('گاستریت حاد معده', 'امپرازول ۲۰ ناشتا | شربت آنتی‌اسید', 'پرهیز از غذاهای اسیدی و تند')">گوارش</button>
+                <button type="button" class="tpl-chip" onclick="applyClinicalTemplate('میگرن و سردرد تنشی', 'سوماتریپتان ۵۰ | ناپروکسن ۲۵۰', 'پرهیز از تنش نوری و استراحت در محیط آرام')">میگرن</button>
+            </div>
+
+            <div class="form-grid">
+                <div class="form-group">
+                    <label>کد ملی بیمار</label>
+                    <input type="text" id="c-nid" placeholder="از جدول بالا انتخاب کنید یا وارد نمایید">
+                </div>
+                <div class="form-group">
+                    <label>تشخیص بالینی (Diagnosis)</label>
+                    <input type="text" id="c-diag" placeholder="تشخیص نهایی پزشک">
+                </div>
+                <div class="form-group">
+                    <label>نسخه دارویی (Prescription)</label>
+                    <input type="text" id="c-rx" placeholder="اقلام دارویی و دستور مصرف">
+                </div>
+            </div>
+            <div class="form-group" style="margin-bottom: 16px;">
+                <label>یادداشت‌های تکمیلی و شرح حال</label>
+                <textarea id="c-notes" rows="2" placeholder="شرح معاینات بالینی و توصیه‌های پزشکی..."></textarea>
+            </div>
+            <button type="button" class="action-btn" onclick="submitConsultation()">✅ ثبت نهایی ویزیت و ارجاع به صندوق</button>
+        </div>
+    </div>
+
+    <!-- ==================== ۳. پنل صندوق و گزارش مالی-پزشکی بدون ابهام ==================== -->
+    <div id="panel-billing" class="section-panel">
+        <div class="sub-header">
+            <div>
+                <h3>💳 مرکز مهندسی مالی، تراز صندوق و حسابداری رسمی کلینیک</h3>
+                <p style="font-size:0.78rem; color:var(--text-sub); margin-top:3px;">کلیه ارقام با دقت دو رقم اعشار و امضای دیجیتال `HMAC-SHA256` راستی‌آزمایی شده‌اند.</p>
+            </div>
+            <div style="display:flex; gap:8px;">
+                <button type="button" class="action-btn btn-secondary btn-sm" onclick="window.print()">🖨️ چاپ گزارش مالی</button>
+                <button type="button" class="action-btn btn-sm" onclick="loadBillingAll()">🔄 بروزرسانی ترازنامه</button>
+            </div>
+        </div>
+
+        <div class="kpi-container">
+            <div class="kpi-card">
+                <div class="kpi-title">۱. تعرفه پایه تسویه‌شده (Gross)</div>
+                <div class="kpi-value" id="fin-gross" style="color:var(--primary-bright);">0.00 $</div>
+                <div class="kpi-subtext">مجموع بدهی پایه کسرشده از بیماران</div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-title">۲. کسر تخفیف و سهم بیمه</div>
+                <div class="kpi-value" id="fin-discount" style="color:var(--warning);">0.00 $</div>
+                <div class="kpi-subtext">کسرشده از صورتحساب بیماران</div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-title">۳. مالیات و عوارض دریافتی</div>
+                <div class="kpi-value" id="fin-tax">0.00 $</div>
+                <div class="kpi-subtext">افزوده‌شده به خالص فاکتورها</div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-title">۴. کل مبالغ مستردشده (Refunds)</div>
+                <div class="kpi-value" id="fin-refunded" style="color:var(--danger);">0.00 $</div>
+                <div class="kpi-subtext">وجه بازگشتی با مجوز مدیر مالی</div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-title">۵. خالص قطعی موجود در خزانه</div>
+                <div class="kpi-value" id="fin-net" style="color:var(--success);">0.00 $</div>
+                <div class="kpi-subtext">Gross + Tax - Discount - Refund</div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-title">۶. مطالبات باز (بدهی تسویه‌نشده)</div>
+                <div class="kpi-value" id="fin-pending" style="color:var(--danger);">0.00 $</div>
+                <div class="kpi-subtext">بیماران در انتظار پرداخت صندوق</div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-title">۷. اصالت رمزنگاری اسناد مالی</div>
+                <div class="kpi-value" id="fin-integrity" style="color:var(--success);">۱۰۰٪ معتبر ✓</div>
+                <div class="kpi-subtext">کنترل امضای HMAC تک‌تک رسیدها</div>
+            </div>
+        </div>
+
+        <div class="accounting-ledger-grid">
+            <div class="sub-box" style="margin-top:0;">
+                <div class="sub-header">
+                    <h4>📑 صورتحساب تلفیقی و فرمول قطعی تراز مالی (بدون ابهام)</h4>
+                    <span class="badge badge-role" id="ledger-counts-badge">-</span>
+                </div>
+                <table class="ledger-formula-table">
+                    <tbody>
+                    <tr>
+                        <td><span class="ledger-operator op-plus">+</span>تعرفه پایه خدمات بالینی تسویه‌شده (Gross Billed Subtotal)</td>
+                        <td id="ledger-gross" style="font-weight:800; text-align:left; direction:ltr;">0.00 $</td>
+                    </tr>
+                    <tr>
+                        <td><span class="ledger-operator op-minus">−</span>کسر تخفیفات مصوب و سهم پایه بیمه (Total Discounts)</td>
+                        <td id="ledger-discount" style="color:var(--warning); font-weight:800; text-align:left; direction:ltr;">0.00 $</td>
+                    </tr>
+                    <tr>
+                        <td><span class="ledger-operator op-plus">+</span>افزوده مالیات و عوارض قانونی (Collected Tax)</td>
+                        <td id="ledger-tax" style="font-weight:800; text-align:left; direction:ltr;">0.00 $</td>
+                    </tr>
+                    <tr>
+                        <td><span class="ledger-operator op-equal">=</span><b>خالص کل وجوه دریافتی پیش از استرداد (Initial Net Collected)</b></td>
+                        <td id="ledger-billed-net" style="font-weight:800; color:var(--primary-bright); text-align:left; direction:ltr;">0.00 $</td>
+                    </tr>
+                    <tr>
+                        <td><span class="ledger-operator op-minus">−</span>کسر استردادهای وجه انجام‌شده (Supervised Refunds Issued)</td>
+                        <td id="ledger-refunded" style="color:var(--danger); font-weight:800; text-align:left; direction:ltr;">0.00 $</td>
+                    </tr>
+                    <tr class="ledger-total-row">
+                        <td><span class="ledger-operator op-equal">=</span><b>خالص قطعی باقی‌مانده در خزانه (Final Net Retained Cash)</b></td>
+                        <td id="ledger-vault-net" style="color:var(--success); font-size:1.02rem; font-weight:800; text-align:left; direction:ltr;">0.00 $</td>
+                    </tr>
+                    <tr>
+                        <td><span class="ledger-operator op-plus">+</span>مطالبات باز و بدهی تسویه‌نشده بیماران (Accounts Receivable)</td>
+                        <td id="ledger-receivables" style="color:var(--warning); font-weight:800; text-align:left; direction:ltr;">0.00 $</td>
+                    </tr>
+                    <tr>
+                        <td><span class="ledger-operator op-equal">=</span><b>ارزش کل کارکرد اقتصادی کلینیک (Total Accrued Value)</b></td>
+                        <td id="ledger-total-economic" style="font-weight:800; text-align:left; direction:ltr;">0.00 $</td>
+                    </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="sub-box" style="margin-top:0;">
+                <h4>🍩 نمودار سهم هر روش پرداخت از خالص خزانه</h4>
+                <div id="billing-methods-donut" style="margin-top:12px;"></div>
+                <hr style="border:none; border-top:1px dashed var(--glass-border); margin:16px 0;">
+                <h4>👨‍⚕️ تفکیک خالص درآمد وصول‌شده به تفکیک پزشک / مرکز هزینه</h4>
+                <div id="doctor-revenue-chart" style="margin-top:10px;"></div>
+            </div>
+        </div>
+
+        <div class="sub-box">
+            <h4>📊 نوارهای مقایسه‌ای توزیع خالص دریافتی بر اساس درگاه پرداخت</h4>
+            <div class="method-bars" id="payment-methods-chart"></div>
+        </div>
+
+        <div class="sub-box" id="cashier-pos-box">
+            <h4>🖥️ پایانه دریافت وجه و صدور فاکتور رسمی (POS Terminal)</h4>
+            <div class="form-grid" style="margin-top: 14px;">
+                <div class="form-group">
+                    <label>کد ملی بیمار</label>
+                    <div class="liquid-input-group">
+                        <input type="text" id="b-nid" placeholder="کد ملی بیمار...">
+                        <button type="button" class="inline-glass-btn" onclick="lookupDebt()">🔍 استعلام</button>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>مبلغ کسر از بدهی ($)</label>
+                    <input type="number" id="b-amount" step="0.01" min="0.01" placeholder="0.00" oninput="updateNetPayablePreview()">
+                </div>
+                <div class="form-group">
+                    <label>تخفیف / سهم بیمه ($)</label>
+                    <input type="number" id="b-discount" step="0.01" min="0" value="0.00" oninput="updateNetPayablePreview()">
+                </div>
+                <div class="form-group">
+                    <label>مالیات ($)</label>
+                    <input type="number" id="b-tax" step="0.01" min="0" value="0.00" oninput="updateNetPayablePreview()">
+                </div>
+                <div class="form-group">
+                    <label>روش پرداخت</label>
+                    <select id="b-method">
+                        <option value="CASH">نقدی (CASH)</option>
+                        <option value="DEBIT_CARD">کارتخوان (DEBIT_CARD)</option>
+                        <option value="CREDIT_CARD">کارت اعتباری (CREDIT_CARD)</option>
+                        <option value="INSURANCE">بیمه (INSURANCE)</option>
+                        <option value="BANK_TRANSFER">حواله بانکی (BANK_TRANSFER)</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>شرح رسید</label>
+                    <input type="text" id="b-desc" value="تسویه در باجه صندوق">
+                </div>
+            </div>
+
+            <div id="debt-info-banner" style="display:none; background:var(--primary-glow); padding:13px 20px; border-radius:999px; margin-bottom:16px; border:1px solid var(--glass-border-strong); font-size:0.9rem; box-shadow:var(--glass-specular-inner);">
+                بیمار: <b id="debt-patient-name">-</b> &nbsp;|&nbsp;
+                مانده بدهی: <b id="debt-patient-val" style="color:var(--warning);">0.00</b> $ &nbsp;|&nbsp;
+                خالص قابل دریافت از بیمار: <b id="net-payable-preview" style="color:var(--success); font-size:1.05rem;">0.00</b> $
+            </div>
+
+            <button type="button" class="action-btn btn-success" onclick="submitPayment()">💳 ثبت پرداخت و صدور فاکتور رسمی</button>
+        </div>
+
+        <div class="sub-box">
+            <h4>⏳ بیماران بدهکار در انتظار پرداخت (WAITING_FOR_PAYMENT)</h4>
+            <div class="table-wrap" style="margin-top:10px;">
+                <table>
+                    <thead>
+                    <tr>
+                        <th>کد ملی</th>
+                        <th>نام بیمار</th>
+                        <th>پزشک معالج</th>
+                        <th>مانده بدهی</th>
+                        <th>انتخاب سریع</th>
+                    </tr>
+                    </thead>
+                    <tbody id="billing-queue-table"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="sub-box" id="admin-refund-box" style="display:none;">
+            <h4>↩️ استرداد وجه نظارت‌شده (Supervised Partial / Full Refund)</h4>
+            <div class="form-grid" style="margin-top:12px;">
+                <div class="form-group">
+                    <label>شماره رسید اصلی (POS-...)</label>
+                    <input type="text" id="ref-receipt-id" placeholder="POS-XXXXXXXX">
+                </div>
+                <div class="form-group">
+                    <label>کد ملی بیمار</label>
+                    <input type="text" id="ref-nid" placeholder="کد ملی بیمار">
+                </div>
+                <div class="form-group">
+                    <label>مبلغ استرداد ($)</label>
+                    <input type="number" id="ref-amount" step="0.01" min="0.01" placeholder="کامل یا جزئی">
+                </div>
+                <div class="form-group">
+                    <label>علت استرداد</label>
+                    <input type="text" id="ref-reason" placeholder="لغو خدمت / اصلاح صورتحساب">
+                </div>
+            </div>
+            <button type="button" class="action-btn btn-danger" onclick="submitRefund()">↩️ تایید و ثبت استرداد وجه</button>
+        </div>
+
+        <div class="sub-box">
+            <h4>🧾 دفتر کل رسیدهای صادرشده و اسناد استرداد</h4>
+            <div class="table-wrap" style="margin-top:10px;">
+                <table>
+                    <thead>
+                    <tr>
+                        <th>شماره سند</th>
+                        <th>کد ملی بیمار</th>
+                        <th>شناسه پزشک</th>
+                        <th>صندوق‌دار</th>
+                        <th>مبلغ پایه</th>
+                        <th>تخفیف</th>
+                        <th>مستردشده</th>
+                        <th>خالص نهایی</th>
+                        <th>روش</th>
+                        <th>وضعیت</th>
+                        <th>چاپ</th>
+                    </tr>
+                    </thead>
+                    <tbody id="receipts-table"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== ۴. پنل مدیریت پرسنل، ساخت نقش جدید و تنظیمات شبکه ==================== -->
+    <div id="panel-staff" class="section-panel">
+        <div class="sub-header">
+            <h3>👥 مدیریت منابع انسانی، تعریف نقش‌های سازمانی و شبکه</h3>
+            <button type="button" class="action-btn btn-secondary btn-sm" onclick="loadStaffList()">🔄 بروزرسانی</button>
+        </div>
+
+        <div class="analytics-grid">
+            <div class="chart-card">
+                <div class="chart-card-header">
+                    <span class="chart-card-title">🍩 توزیع پرسنل به تفکیک نقش سازمانی</span>
+                </div>
+                <div id="staff-roles-donut"></div>
+            </div>
+            <div class="chart-card">
+                <div class="chart-card-header">
+                    <span class="chart-card-title">📊 وضعیت اشتغال و دسترسی حساب‌ها</span>
+                </div>
+                <div id="staff-status-bars"></div>
+            </div>
+        </div>
+
+        <!-- بخش ۱: ساخت نقش سازمانی جدید (Role Builder) -->
+        <div class="sub-box" style="border-color: var(--glass-border-strong);">
+            <div class="sub-header">
+                <h4>🛡️ تعریف و ساخت نقش سازمانی جدید (Custom Role Builder)</h4>
+                <span class="badge badge-role">افزودن آنی به لیست نقش‌های کلینیک</span>
+            </div>
+            <div class="form-grid">
+                <div class="form-group">
+                    <label>کد انگلیسی نقش (مثلاً: PHARMACIST یا LAB_TECH)</label>
+                    <input type="text" id="new-role-code" placeholder="مثلاً: PHARMACIST" style="direction:ltr;">
+                </div>
+                <div class="form-group">
+                    <label>عنوان فارسی نقش سازمانی</label>
+                    <input type="text" id="new-role-title" placeholder="مثلاً: مسئول داروخانه / کارشناس آزمایشگاه">
+                </div>
+                <div class="form-group">
+                    <label>سطح مجوز امنیتی پایه (Security Clearance)</label>
+                    <select id="new-role-clearance">
+                        <option value="RECEPTIONIST">پذیرش و صف بیماران (RECEPTIONIST)</option>
+                        <option value="NURSE">تریاژ و مراقبت پرستاری (NURSE)</option>
+                        <option value="DOCTOR">معاینه و ثبت پرونده پزشکی (DOCTOR)</option>
+                        <option value="CASHIER">صندوق و تسویه مالی (CASHIER)</option>
+                        <option value="FINANCIAL_ADMIN">مدیریت مالی و استرداد (FINANCIAL_ADMIN)</option>
+                        <option value="HR_ADMIN">مدیریت منابع انسانی (HR_ADMIN)</option>
+                        <option value="AUDITOR">بازرسی و حسابرسی امنیتی (AUDITOR)</option>
+                    </select>
+                </div>
+            </div>
+            <button type="button" class="action-btn btn-success" onclick="submitCreateNewRole()">✨ ثبت و ایجاد نقش سازمانی جدید</button>
+        </div>
+
+        <!-- بخش ۲: ثبت پرسنل جدید -->
+        <div class="sub-box">
+            <h4>➕ تعریف حساب پرسنلی جدید</h4>
+            <div class="form-grid" style="margin-top: 12px;">
+                <div class="form-group"><label>نام کاربری</label><input type="text" id="reg-user" placeholder="حداقل ۳ کاراکتر"></div>
+                <div class="form-group"><label>رمز عبور</label><input type="password" id="reg-pass" placeholder="حداقل ۶ کاراکتر"></div>
+                <div class="form-group"><label>کد ملی</label><input type="text" id="reg-nid" placeholder="کد ملی ۱۰ رقمی"></div>
+                <div class="form-group"><label>نام کامل</label><input type="text" id="reg-name" placeholder="نام و نام خانوادگی"></div>
+                <div class="form-group"><label>سن (حداقل ۱۸)</label><input type="number" id="reg-age" value="30" min="18" max="100"></div>
+                <div class="form-group"><label>شماره تماس</label><input type="text" id="reg-phone" value="09120000000"></div>
+                <div class="form-group"><label>حقوق پایه ($)</label><input type="number" id="reg-salary" value="20000" min="0"></div>
+                <div class="form-group">
+                    <label>نقش سازمانی (شامل نقش‌های پیش‌فرض و سفارشی)</label>
+                    <select id="reg-role" onchange="toggleRoleFields()">
+                        <option value="DOCTOR">پزشک معالج (DOCTOR)</option>
+                        <option value="NURSE">پرستار بالینی (NURSE)</option>
+                        <option value="CASHIER">مسئول صندوق (CASHIER)</option>
+                        <option value="RECEPTIONIST">مسئول پذیرش (RECEPTIONIST)</option>
+                        <option value="FINANCIAL_ADMIN">مدیر مالی (FINANCIAL_ADMIN)</option>
+                        <option value="CLINICAL_ADMIN">مدیر بالینی (CLINICAL_ADMIN)</option>
+                        <option value="HR_ADMIN">مدیر منابع انسانی (HR_ADMIN)</option>
+                        <option value="AUDITOR">بازرس امنیتی (AUDITOR)</option>
+                        <option value="SUPER_ADMIN">مدیر ارشد (SUPER_ADMIN)</option>
+                    </select>
+                </div>
+                <div class="form-group" id="doc-lic-group">
+                    <label>شماره نظام پزشکی</label>
+                    <input type="text" id="reg-med-id" placeholder="MED-1234">
+                </div>
+                <div class="form-group" id="doc-spec-group">
+                    <label>تخصص پزشک</label>
+                    <select id="reg-spec">
+                        <option value="GENERAL_PRACTICE">عمومی</option>
+                        <option value="INTERNAL_MEDICINE">داخلی</option>
+                        <option value="CARDIOLOGY">قلب و عروق</option>
+                        <option value="PEDIATRICS">اطفال</option>
+                        <option value="DERMATOLOGY">پوست</option>
+                    </select>
+                </div>
+                <div class="form-group" id="cashier-lim-group" style="display:none;">
+                    <label>سقف مجاز تراکنش ($)</label>
+                    <input type="number" id="reg-limit" value="50000">
+                </div>
+            </div>
+            <button type="button" class="action-btn" onclick="submitRegisterStaff()">➕ ایجاد حساب پرسنل</button>
+        </div>
+
+        <!-- بخش ۳: فهرست پرسنل -->
+        <div class="sub-box">
+            <div class="sub-header">
+                <h4>📋 فهرست پرسنل فعال و تعلیق‌شده</h4>
+            </div>
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                    <tr>
+                        <th>شناسه</th>
+                        <th>نام کاربری</th>
+                        <th>نام کامل</th>
+                        <th>کد ملی</th>
+                        <th>نقش</th>
+                        <th>وضعیت</th>
+                        <th>عملیات</th>
+                    </tr>
+                    </thead>
+                    <tbody id="staff-table"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- بخش ۴: مدیریت شبکه داخلی و گواهی SSL اختیاری (Cross-Platform) -->
+        <div class="sub-box">
+            <div class="sub-header">
+                <div>
+                    <h4>🌐 وضعیت شبکه داخلی (LAN/WLAN) و راه‌اندازی اختیاری گواهی SSL</h4>
+                    <p style="font-size:0.78rem; color:var(--text-sub); margin-top:4px;">پروتکل HTTPS به صورت پیش‌فرض غیرفعال است تا در ویندوز، مک و لینوکس بدون هشدار مرورگر اجرا شود.</p>
+                </div>
+                <span id="net-protocol-status" class="badge badge-role">HTTP استاندارد (پورت 8080)</span>
+            </div>
+            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
+                <div style="font-size:0.86rem;">
+                    آدرس اتصال سایر دستگاه‌های شبکه کلینیک: <b id="net-lan-url" style="font-family:monospace; color:var(--primary-bright); direction:ltr; display:inline-block;">http://localhost:8080</b>
+                </div>
+                <button type="button" class="action-btn btn-secondary btn-sm" onclick="generateOptionalSsl()">🔐 تولید فایل گواهی SSL (برای Windows / macOS / Linux)</button>
+            </div>
+            <div id="ssl-guides-box" style="display:none; margin-top:14px; padding:12px 16px; border-radius:18px; background:var(--glass-well); border:1px solid var(--glass-border);">
+                <div style="font-size:0.78rem; color:var(--text-secondary); margin-bottom:6px; font-weight:700;">دستورات نصب گواهی در سیستم‌عامل‌های مختلف (در صورت تمایل به فعال‌سازی HTTPS):</div>
+                <pre id="net-ssl-guides" style="font-family:monospace; font-size:0.74rem; color:var(--primary-bright); direction:ltr; text-align:left; overflow-x:auto; line-height:1.7;"></pre>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== ۵. پنل حسابرسی امنیتی ==================== -->
+    <div id="panel-audit" class="section-panel">
+        <div class="sub-header">
+            <div>
+                <h3>🛡️ مرکز پایش یکپارچگی و زنجیره حسابرسی (HMAC-SHA256 Merkle Chain)</h3>
+                <p style="font-size:0.8rem; color:var(--text-sub); margin-top:4px;">تمامی وقایع شبکه داخلی با IP ایستگاه کاری، هش زنجیره‌ای و لنگر رمزنگاری‌شده ثبت می‌شوند.</p>
+            </div>
+            <div style="display:flex; gap:8px;">
+                <button type="button" id="audit-recover-btn" class="action-btn btn-danger" style="display:none;" onclick="triggerAuditRecovery()">🛠️ بازیابی خودکار ژورنال</button>
+                <button type="button" class="action-btn btn-success" onclick="verifyChainIntegrity()">🔍 راستی‌آزمایی ریاضی زنجیره</button>
+                <button type="button" class="action-btn btn-secondary" onclick="loadAuditTrail()">🔄 بروزرسانی</button>
+            </div>
+        </div>
+
+        <div class="kpi-container">
+            <div class="kpi-card">
+                <div class="kpi-title">وضعیت سلامت زنجیره و لنگر</div>
+                <div class="kpi-value" id="kpi-integrity" style="color:var(--success);">معتبر ✓</div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-title">تعداد بلوک‌های ثبت‌شده</div>
+                <div class="kpi-value" id="kpi-count" style="color:var(--primary-bright);">-</div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-title">الگوریتم امضای لنگر</div>
+                <div class="kpi-value" style="color:var(--warning);">HMAC-SHA256</div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-title">آخرین هش (Head Hash)</div>
+                <div class="kpi-value" id="kpi-last-hash" style="font-family:monospace; font-size:0.86rem;">-</div>
+            </div>
+        </div>
+
+        <div class="analytics-grid">
+            <div class="chart-card">
+                <div class="chart-card-header">
+                    <span class="chart-card-title">🔗 گراف زنده پیوند بلوک‌های زنجیره هش (آخرین بلوک‌ها)</span>
+                </div>
+                <div id="audit-blockchain-visualizer" class="hash-chain-ribbon"></div>
+            </div>
+            <div class="chart-card">
+                <div class="chart-card-header">
+                    <span class="chart-card-title">🛡️ نسبت رخدادهای موفق به تلاش‌های مسدودشده</span>
+                </div>
+                <div id="audit-events-donut"></div>
+            </div>
+        </div>
+
+        <div class="table-wrap">
+            <table>
+                <thead>
+                <tr>
+                    <th>ردیف</th>
+                    <th>زمان ثبت</th>
+                    <th>کاربر و نقش</th>
+                    <th>عملیات و جزئیات</th>
+                    <th>آدرس IP ایستگاه</th>
+                    <th>وضعیت</th>
+                    <th>هش قبلی</th>
+                    <th>هش جاری</th>
+                </tr>
+                </thead>
+                <tbody id="audit-table"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- ==================== داک ترمینال رخدادهای زنده ==================== -->
+    <section class="telemetry-dock">
+        <div class="telemetry-header">
+            <div class="telemetry-title-group">
+                <div class="term-dots">
+                    <span class="term-dot red"></span>
+                    <span class="term-dot yellow"></span>
+                    <span class="term-dot green"></span>
+                </div>
+                <span>ترمینال زنده رخدادهای هسته | Live Kernel Telemetry</span>
+            </div>
+            <button type="button" class="telemetry-clear-btn" onclick="clearConsoleLog()">پاکسازی گزارش ✕</button>
+        </div>
+        <div id="console-log"></div>
+    </section>
+</main>
+
+
+<script src="/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,261 @@
+/* ==================== کارت‌های شاخص (KPI Widgets) ==================== */
+.kpi-container {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(175px, 1fr));
+    gap: 14px;
+    margin-bottom: 18px;
+}
+
+.kpi-card {
+    background: var(--glass-card);
+    backdrop-filter: blur(28px);
+    border: 1px solid var(--glass-border);
+    border-radius: 24px;
+    padding: 16px 18px;
+    box-shadow: var(--glass-shadow-sm);
+    transition: transform 0.25s ease, border-color 0.25s ease;
+}
+
+.kpi-card:hover {
+    transform: translateY(-3px);
+    border-color: var(--glass-border-strong);
+}
+
+.kpi-title { font-size: 0.76rem; font-weight: 700; color: var(--text-sub); margin-bottom: 7px; }
+.kpi-value { font-size: 1.28rem; font-weight: 800; color: var(--text-main); }
+.kpi-subtext { font-size: 0.71rem; color: var(--text-muted); margin-top: 5px; font-weight: 600; }
+
+/* ==================== گرید نمودارهای تحلیلی هر نقش (Analytics Visual Grid) ==================== */
+.analytics-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(310px, 1fr));
+    gap: 16px;
+    margin-top: 14px;
+    margin-bottom: 18px;
+}
+
+.chart-card {
+    background: var(--glass-card);
+    backdrop-filter: blur(30px);
+    border: 1px solid var(--glass-border);
+    border-radius: 26px;
+    padding: 18px 20px;
+    box-shadow: var(--glass-shadow-sm);
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+}
+
+.chart-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 14px;
+}
+
+.chart-card-title {
+    font-size: 0.88rem;
+    font-weight: 800;
+    color: var(--text-main);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.donut-widget-layout {
+    display: flex;
+    align-items: center;
+    justify-content: space-around;
+    gap: 16px;
+    flex-wrap: wrap;
+}
+
+.donut-svg-wrap {
+    position: relative;
+    width: 132px;
+    height: 132px;
+    flex-shrink: 0;
+}
+
+.donut-center-label {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    pointer-events: none;
+}
+
+.donut-center-val { font-size: 1.15rem; font-weight: 800; color: var(--text-main); }
+.donut-center-sub { font-size: 0.68rem; font-weight: 700; color: var(--text-sub); }
+
+.chart-legend {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    flex: 1;
+    min-width: 140px;
+}
+
+.legend-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.78rem;
+    padding: 5px 10px;
+    border-radius: 999px;
+    background: var(--glass-well);
+    border: 1px solid var(--glass-border);
+}
+
+.legend-dot {
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    display: inline-block;
+    margin-left: 7px;
+}
+
+/* ==================== نوارهای پیشرفت شیشه‌ای (Liquid Bars) ==================== */
+.method-bars {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(195px, 1fr));
+    gap: 12px;
+    margin-top: 12px;
+}
+
+.method-bar-item {
+    background: var(--glass-well);
+    padding: 12px 15px;
+    border-radius: 18px;
+    border: 1px solid var(--glass-border);
+    box-shadow: var(--glass-specular-top);
+}
+
+.method-bar-top {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.79rem;
+    font-weight: 700;
+    color: var(--text-main);
+    margin-bottom: 8px;
+}
+
+.progress-track {
+    height: 9px;
+    background: rgba(148, 163, 184, 0.16);
+    border-radius: 999px;
+    overflow: hidden;
+}
+
+.progress-fill {
+    height: 100%;
+    background: var(--liquid-blue);
+    width: 0%;
+    border-radius: 999px;
+    box-shadow: 0 0 12px rgba(56, 189, 248, 0.65);
+    transition: width 0.65s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* ==================== گیج زنده علائم حیاتی پرستار (Live Vitals Telemetry) ==================== */
+.vitals-gauge-strip {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 12px;
+    margin: 14px 0;
+}
+
+.vital-Readout-pill {
+    background: var(--glass-well);
+    border: 1px solid var(--glass-border);
+    border-radius: 20px;
+    padding: 12px 16px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    box-shadow: var(--glass-specular-top);
+}
+
+.vital-status-tag {
+    padding: 4px 10px;
+    border-radius: 999px;
+    font-size: 0.72rem;
+    font-weight: 800;
+}
+
+/* ==================== ترازنامه حسابداری شفاف و بدون ابهام (Unambiguous Accounting Matrix) ==================== */
+.accounting-ledger-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: 16px;
+    margin-top: 12px;
+}
+
+.ledger-formula-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.ledger-formula-table tr {
+    border-bottom: 1px dashed var(--glass-border);
+}
+
+.ledger-formula-table td {
+    padding: 10px 12px;
+    font-size: 0.84rem;
+}
+
+.ledger-operator {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    font-weight: 800;
+    font-size: 0.82rem;
+    margin-left: 8px;
+}
+
+.op-plus { background: var(--success-bg); color: var(--success); }
+.op-minus { background: var(--danger-bg); color: var(--danger); }
+.op-equal { background: var(--primary-glow); color: var(--primary-bright); }
+
+.ledger-total-row {
+    background: var(--primary-glow);
+    border-radius: 14px;
+    font-weight: 800;
+}
+
+/* ==================== ویژوالایزر زنجیره بلوکی هش (Blockchain Merkle Visualizer) ==================== */
+.hash-chain- ribbon {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    overflow-x: auto;
+    padding: 12px 6px;
+}
+
+.hash-block-node {
+    background: var(--glass-well);
+    border: 1px solid var(--glass-border-strong);
+    border-radius: 20px;
+    padding: 11px 15px;
+    min-width: 175px;
+    flex-shrink: 0;
+    box-shadow: var(--glass-specular-top);
+    transition: transform 0.2s ease;
+}
+
+.hash-block-node:hover {
+    transform: translateY(-3px);
+}
+
+.hash-connector {
+    color: var(--primary);
+    font-weight: 800;
+    font-size: 1.1rem;
+    flex-shrink: 0;
+}

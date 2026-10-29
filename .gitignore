@@ -1,30 +1,34 @@
-# خروجی‌های کامپایل و بیلد (Maven & IntelliJ)
+# Compiled Build Output
 target/
-out/
 build/
+out/
 *.class
 *.jar
 *.war
 
-# تنظیمات محیط توسعه (IntelliJ IDEA & VSCode & Eclipse)
-.idea/
-*.iml
-*.iws
-*.ipr
-.vscode/
-.settings/
-.project
-.classpath
-
-# فایل‌های پایگاه داده محلی (H2 Database)
+# Runtime Database, Cryptographic Keys & Audit Anchors
 data/
+reports/
 *.mv.db
 *.trace.db
-*.lock.db
+*.anchor
+*.anchor.pending
+*.anchor.lock
+*.rolled-back-*
+*.p12
+*.cer
+*.key
 
-# لاگ‌ها و فایل‌های موقت سیستم‌عامل
-*.log
-logs/
+# AI & Repomix Bundles
+repomix-output.txt
+full_project.txt
+
+# IDE & OS Specific Files
+.idea/
+*.iml
+.vscode/
+.settings/
+.classpath
+.project
 .DS_Store
 Thumbs.db
-Desktop.ini

@@ -1,0 +1,2974 @@
+This file is a merged representation of a subset of the codebase, containing specifically included files, combined into a single document by Repomix.
+
+<file_summary>
+This section contains a summary of this file.
+
+<purpose>
+This file contains a packed representation of a subset of the repository's contents that is considered the most important context.
+It is designed to be easily consumable by AI systems for analysis, code review,
+or other automated processes.
+</purpose>
+
+<file_format>
+The content is organized as follows:
+1. This summary section
+2. Repository information
+3. Directory structure
+4. Repository files (if enabled)
+5. Multiple file entries, each consisting of:
+  - File path as an attribute
+  - Full contents of the file
+</file_format>
+
+<usage_guidelines>
+- This file should be treated as read-only. Any changes should be made to the
+  original repository files, not this packed version.
+- When processing this file, use the file path to distinguish
+  between different files in the repository.
+- Be aware that this file may contain sensitive information. Handle it with
+  the same level of security as you would the original repository.
+</usage_guidelines>
+
+<notes>
+- Some files may have been excluded based on .gitignore rules and Repomix's configuration
+- Binary files are not included in this packed representation. Please refer to the Repository Structure section for a complete list of file paths, including binary files
+- Only files matching these patterns are included: src/main/resources/**
+- Files matching patterns in .gitignore are excluded
+- Files matching default ignore patterns are excluded
+- Files are sorted by Git change count (files with more changes are at the bottom)
+</notes>
+
+</file_summary>
+
+<directory_structure>
+src/
+  main/
+    resources/
+      static/
+        app.js
+        index.html
+        styles.css
+      application.properties
+</directory_structure>
+
+<files>
+This section contains the contents of the repository's files.
+
+<file path="src/main/resources/static/app.js">
+let currentUser = null;
+const API_BASE = '';
+
+async function apiFetch(path, options = {}) {
+    const headers = new Headers(options.headers || {});
+    const method = (options.method || 'GET').toUpperCase();
+    if (!['GET', 'HEAD', 'OPTIONS'].includes(method)) {
+        // Obtain a fresh session-bound token, including after login rotates the session.
+        const response = await fetch(API_BASE + '/api/auth/csrf', {credentials: 'same-origin', cache: 'no-store'});
+        if (!response.ok) throw new Error('دریافت توکن امنیتی ناموفق بود. لطفاً دوباره تلاش کنید.');
+        const csrf = await response.json();
+        headers.set(csrf.headerName, csrf.token);
+    }
+    const response = await fetch(API_BASE + path, {...options, headers, credentials: 'same-origin'});
+    if (response.status === 401 && currentUser) {
+        currentUser = null;
+        document.getElementById('auth-overlay').style.display = 'flex';
+        document.getElementById('current-user-name').textContent = '-';
+        document.getElementById('current-user-role').textContent = '-';
+    }
+    if (!response.ok && !(response.headers.get('Content-Type') || '').includes('application/json')) {
+        // Security filters and proxy failures may return empty/HTML bodies, not API JSON.
+        const message = response.status === 403 ? 'مجوز دسترسی یا توکن امنیتی معتبر نیست.'
+                : response.status === 401 ? 'لطفاً دوباره وارد سامانه شوید.' : 'پردازش درخواست ناموفق بود.';
+        return new Response(JSON.stringify({status: response.status, message}), {
+            status: response.status, headers: {'Content-Type': 'application/json'}
+        });
+    }
+    return response;
+}
+
+function updateClock() {
+    const now = new Date();
+    const clockEl = document.getElementById('live-jalali-clock');
+    if (!clockEl) return;
+    try {
+        const dateStr = new Intl.DateTimeFormat('fa-IR', {year: 'numeric', month: 'long', day: 'numeric'}).format(now);
+        const timeStr = now.toLocaleTimeString('fa-IR');
+        clockEl.textContent = `${dateStr} | ${timeStr}`;
+    } catch (e) {
+        clockEl.textContent = now.toLocaleTimeString();
+    }
+}
+
+setInterval(updateClock, 1000);
+updateClock();
+
+function toggleTheme() {
+    const root = document.documentElement;
+    const next = root.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+    root.setAttribute('data-theme', next);
+    localStorage.setItem('clinic_theme', next);
+    const btn = document.getElementById('theme-btn');
+    if (btn) btn.textContent = next === 'dark' ? '☀️ تم روشن' : '🌙 تم تیره';
+}
+
+(function initTheme() {
+    const saved = localStorage.getItem('clinic_theme') || 'dark';
+    document.documentElement.setAttribute('data-theme', saved);
+    const btn = document.getElementById('theme-btn');
+    if (btn) btn.textContent = saved === 'dark' ? '☀️ تم روشن' : '🌙 تم تیره';
+})();
+
+function flashInput(id) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.classList.remove('input-flash');
+    void el.offsetWidth;
+    el.classList.add('input-flash');
+    el.focus();
+}
+
+function showToast(msg, type = 'info') {
+    const container = document.getElementById('toast-container');
+    if (!container) return;
+    const toast = document.createElement('div');
+    toast.className = 'toast ' + (type === 'error' ? 'toast-error' : (type === 'success' ? 'toast-success' : ''));
+    toast.textContent = msg;
+    container.appendChild(toast);
+    setTimeout(() => toast.remove(), 4200);
+}
+
+function log(msg, isError = false) {
+    showToast(msg, isError ? 'error' : 'success');
+    const consoleEl = document.getElementById('console-log');
+    if (!consoleEl) return;
+
+    const line = document.createElement('div');
+    line.className = 'log-line ' + (isError ? 'log-err' : 'log-ok');
+
+    const dot = document.createElement('span');
+    dot.className = 'log-status-dot';
+
+    const timePill = document.createElement('span');
+    timePill.className = 'log-time-pill';
+    timePill.textContent = new Date().toLocaleTimeString('en-US', { hour12: true });
+
+    const textSpan = document.createElement('span');
+    textSpan.style.flex = '1';
+    textSpan.textContent = msg;
+
+    line.appendChild(dot);
+    line.appendChild(timePill);
+    line.appendChild(textSpan);
+
+    consoleEl.prepend(line);
+}
+
+function clearConsoleLog() {
+    const consoleEl = document.getElementById('console-log');
+    if (consoleEl) consoleEl.replaceChildren();
+}
+
+function createCell(text, style = '') {
+    const td = document.createElement('td');
+    td.textContent = (text !== null && text !== undefined) ? String(text) : '-';
+    if (style) td.style.cssText = style;
+    return td;
+}
+
+function filterTable(tbodyId, query) {
+    const q = (query || '').trim().toLowerCase();
+    document.querySelectorAll(`#${tbodyId} tr`).forEach(r => {
+        r.style.display = r.textContent.toLowerCase().includes(q) ? '' : 'none';
+    });
+}
+
+function closeModal(id) {
+    const el = document.getElementById(id);
+    if (el) el.style.display = 'none';
+}
+
+function showAuthError(msg) {
+    const box = document.getElementById('auth-error-box');
+    if (!box) return;
+    box.textContent = msg;
+    box.style.display = 'block';
+}
+
+
+async function checkSession() {
+    try {
+        const res = await apiFetch('/api/auth/me');
+        if (res.ok) {
+            currentUser = await res.json();
+            applyUserRole();
+        } else {
+            document.getElementById('auth-overlay').style.display = 'flex';
+        }
+    } catch (e) {
+        document.getElementById('auth-overlay').style.display = 'flex';
+    }
+}
+
+async function submitLogin() {
+    document.getElementById('auth-error-box').style.display = 'none';
+    const username = document.getElementById('login-user').value.trim();
+    const password = document.getElementById('login-pass').value;
+    if (!username || !password) return showAuthError('نام کاربری و رمز عبور را وارد کنید.');
+
+    try {
+        const res = await apiFetch('/api/auth/login', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({username, password})
+        });
+        const data = await res.json();
+        if (!res.ok) return showAuthError(data.message || 'خطا در ورود');
+
+        currentUser = data;
+        document.getElementById('login-pass').value = '';
+        applyUserRole();
+        log(`ورود موفق به اکانت '${currentUser.username}': ${currentUser.fullName} (${currentUser.role})`);
+    } catch (err) {
+        showAuthError('سرور در دسترس نیست. مطمئن شوید ClinicApplication در حال اجراست.');
+    }
+}
+
+async function submitLogout() {
+    try {
+        const response = await apiFetch('/api/auth/logout', {method: 'POST'});
+        if (!response.ok && response.status !== 401) throw new Error('خروج از نشست ناموفق بود.');
+    } catch (err) {
+        log(err.message || 'ارتباط با سرور برقرار نشد.', true);
+        return;
+    }
+    currentUser = null;
+    document.getElementById('auth-overlay').style.display = 'flex';
+    log('از حساب کاربری خارج شدید.');
+}
+
+function applyUserRole() {
+    document.getElementById('auth-overlay').style.display = 'none';
+    document.getElementById('current-user-name').textContent = currentUser.fullName;
+    document.getElementById('current-user-role').textContent = `${currentUser.role} (#${currentUser.username})`;
+
+    const role = currentUser.role.toUpperCase();
+    const navIntake = document.getElementById('nav-intake');
+    const navClinical = document.getElementById('nav-clinical');
+    const navBilling = document.getElementById('nav-billing');
+    const navStaff = document.getElementById('nav-staff');
+    const navAudit = document.getElementById('nav-audit');
+
+    [navIntake, navClinical, navBilling, navStaff, navAudit].forEach(b => b.style.display = 'none');
+
+    document.getElementById('cashier-pos-box').style.display = role.includes('CASHIER') ? 'block' : 'none';
+    document.getElementById('admin-refund-box').style.display = (role.includes('SUPER_ADMIN') || role.includes('FINANCIAL_ADMIN')) ? 'block' : 'none';
+    document.getElementById('nurse-triage-box').style.display = role.includes('NURSE') ? 'block' : 'none';
+
+    if (role.includes('SUPER_ADMIN')) {
+        navIntake.style.display = 'flex';
+        navBilling.style.display = 'flex';
+        navStaff.style.display = 'flex';
+        navAudit.style.display = 'flex';
+        switchNav('audit');
+    } else if (role.includes('AUDITOR')) {
+        navAudit.style.display = 'flex';
+        switchNav('audit');
+    } else if (role.includes('HR_ADMIN')) {
+        navStaff.style.display = 'flex';
+        switchNav('staff');
+    } else if (role.includes('FINANCIAL_ADMIN')) {
+        navBilling.style.display = 'flex';
+        switchNav('billing');
+    } else if (role.includes('DOCTOR')) {
+        navClinical.style.display = 'flex';
+        switchNav('clinical');
+    } else if (role.includes('CASHIER')) {
+        navBilling.style.display = 'flex';
+        navIntake.style.display = 'flex';
+        switchNav('billing');
+    } else {
+        navIntake.style.display = 'flex';
+        switchNav('intake');
+    }
+}
+
+function switchNav(panel) {
+    document.querySelectorAll('.nav-btn').forEach(btn => btn.classList.remove('active'));
+    document.querySelectorAll('.section-panel').forEach(p => p.classList.remove('active'));
+
+    const targetBtn = document.getElementById(`nav-${panel}`);
+    const targetPanel = document.getElementById(`panel-${panel}`);
+    if (targetBtn) targetBtn.classList.add('active');
+    if (targetPanel) targetPanel.classList.add('active');
+
+    if (panel === 'intake') {
+        loadQueue();
+        loadReadyForDischarge();
+    }
+    if (panel === 'clinical') loadDoctorQueue();
+    if (panel === 'billing') loadBillingAll();
+    if (panel === 'staff') loadStaffList();
+    if (panel === 'audit') loadAuditTrail();
+}
+
+// ==================== ۱. پذیرش، تریاژ پرستار و ترخیص ====================
+async function registerPatient() {
+    const payload = {
+        nationalId: document.getElementById('p-nid').value.trim(),
+        fullName: document.getElementById('p-name').value.trim(),
+        age: parseInt(document.getElementById('p-age').value, 10),
+        contactNumber: document.getElementById('p-phone').value.trim(),
+        bloodType: document.getElementById('p-blood').value
+    };
+
+    try {
+        const res = await apiFetch('/api/clinical/patients/register', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        if (!res.ok) throw data;
+        log(`بیمار '${data.fullName}' با کد ملی ${data.nationalId} پذیرش شد.`);
+        document.getElementById('p-nid').value = '';
+        document.getElementById('p-name').value = '';
+        loadQueue();
+    } catch (err) {
+        log(`خطا در پذیرش: ${err.message || 'اطلاعات نامعتبر است.'}`, true);
+    }
+}
+
+async function submitNurseTriage() {
+    const nid = document.getElementById('t-nid').value.trim();
+    if (!nid) return showToast('کد ملی بیمار را برای تریاژ وارد کنید.', 'error');
+
+    const payload = {
+        patientNationalId: nid,
+        bloodPressure: document.getElementById('t-bp').value.trim(),
+        bodyTemperatureCelsius: parseFloat(document.getElementById('t-temp').value),
+        heartRateBpm: parseInt(document.getElementById('t-hr').value, 10),
+        chiefComplaint: document.getElementById('t-complaint').value.trim(),
+        nursingNotes: document.getElementById('t-notes').value.trim()
+    };
+
+    try {
+        const res = await apiFetch('/api/clinical/records/triage', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        if (!res.ok) throw data;
+        log(`تریاژ و علائم حیاتی بیمار ${nid} با موفقیت در پرونده ثبت شد.`);
+        document.getElementById('t-complaint').value = '';
+        document.getElementById('t-notes').value = '';
+    } catch (err) {
+        log(`خطا در ثبت تریاژ: ${err.message || 'اطلاعات علائم حیاتی نامعتبر است.'}`, true);
+    }
+}
+
+async function lookupPatientQuick() {
+    const nid = document.getElementById('lookup-p-nid').value.trim();
+    if (!nid) return showToast('کد ملی بیمار را وارد کنید.', 'error');
+    try {
+        const res = await apiFetch(`/api/clinical/patients/${encodeURIComponent(nid)}`);
+        const data = await res.json();
+        if (!res.ok) throw data;
+        document.getElementById('lookup-p-result').textContent =
+            `بیمار: ${data.fullName} | وضعیت: ${data.currentStatus} | بدهی: ${data.pendingBill} $`;
+    } catch (err) {
+        document.getElementById('lookup-p-result').textContent = '';
+        log(`بیمار یافت نشد: ${err.message}`, true);
+    }
+}
+
+async function reCheckInPatient() {
+    const nid = document.getElementById('lookup-p-nid').value.trim();
+    if (!nid) return showToast('کد ملی بیمار را وارد کنید.', 'error');
+    try {
+        const res = await apiFetch(`/api/clinical/patients/${encodeURIComponent(nid)}/check-in`, {method: 'PUT'});
+        if (!res.ok) throw await res.json();
+        log(`بیمار ${nid} مجدداً به صف انتظار پزشک منتقل شد.`);
+        loadQueue();
+        lookupPatientQuick();
+    } catch (err) {
+        log(`خطا در پذیرش مجدد: ${err.message}`, true);
+    }
+}
+
+async function loadQueue() {
+    try {
+        const res = await apiFetch('/api/clinical/patients/status/WAITING_FOR_DOCTOR');
+        if (!res.ok) throw await res.json();
+        const data = await res.json();
+        const tbody = document.getElementById('queue-table');
+        tbody.replaceChildren();
+
+        if (data.length === 0) {
+            const tr = document.createElement('tr');
+            const td = createCell('هیچ بیماری در صف انتظار پزشک نیست.', 'text-align:center; color:var(--text-sub);');
+            td.colSpan = 7;
+            tr.appendChild(td);
+            tbody.appendChild(tr);
+            return;
+        }
+
+        const isNurse = currentUser && currentUser.role.toUpperCase().includes('NURSE');
+
+        data.forEach(p => {
+            const tr = document.createElement('tr');
+            tr.appendChild(createCell(p.patientId, 'font-family:monospace; color:var(--primary); font-weight:700;'));
+            tr.appendChild(createCell(p.nationalId));
+            tr.appendChild(createCell(p.fullName, 'font-weight:700;'));
+            tr.appendChild(createCell(p.bloodType));
+
+            const statusTd = document.createElement('td');
+            const badge = document.createElement('span');
+            badge.className = 'badge badge-warning';
+            badge.textContent = p.currentStatus;
+            statusTd.appendChild(badge);
+            tr.appendChild(statusTd);
+
+            tr.appendChild(createCell(`${p.pendingBill} $`));
+
+            const actionTd = document.createElement('td');
+            if (isNurse) {
+                const triageBtn = document.createElement('button');
+                triageBtn.className = 'action-btn btn-sm';
+                triageBtn.textContent = '💉 انتخاب جهت تریاژ';
+                triageBtn.addEventListener('click', () => {
+                    document.getElementById('t-nid').value = p.nationalId;
+                    flashInput('t-bp');
+                    showToast(`بیمار ${p.fullName} برای ثبت تریاژ انتخاب شد.`);
+                });
+                actionTd.appendChild(triageBtn);
+            }
+
+            const cancelBtn = document.createElement('button');
+            cancelBtn.className = 'action-btn btn-danger btn-sm';
+            cancelBtn.textContent = 'لغو پذیرش';
+            cancelBtn.addEventListener('click', () => cancelPatientAdmission(p.nationalId));
+            actionTd.appendChild(cancelBtn);
+
+            tr.appendChild(actionTd);
+            tbody.appendChild(tr);
+        });
+    } catch (err) {
+    }
+}
+
+async function loadReadyForDischarge() {
+    try {
+        const res = await apiFetch('/api/clinical/patients/status/PAYMENT_COMPLETED');
+        if (!res.ok) throw await res.json();
+        const data = await res.json();
+        const tbody = document.getElementById('discharge-table');
+        tbody.replaceChildren();
+
+        if (data.length === 0) {
+            const tr = document.createElement('tr');
+            const td = createCell('بیماری در وضعیت آماده ترخیص نیست.', 'text-align:center; color:var(--text-sub);');
+            td.colSpan = 5;
+            tr.appendChild(td);
+            tbody.appendChild(tr);
+            return;
+        }
+
+        data.forEach(p => {
+            const tr = document.createElement('tr');
+            tr.appendChild(createCell(p.nationalId));
+            tr.appendChild(createCell(p.fullName, 'font-weight:700;'));
+            tr.appendChild(createCell(p.assignedDoctorName));
+
+            const statusTd = document.createElement('td');
+            const badge = document.createElement('span');
+            badge.className = 'badge badge-success';
+            badge.textContent = 'تسویه کامل ✓';
+            statusTd.appendChild(badge);
+            tr.appendChild(statusTd);
+
+            const actionTd = document.createElement('td');
+            const disBtn = document.createElement('button');
+            disBtn.className = 'action-btn btn-success btn-sm';
+            disBtn.textContent = 'ترخیص قطعی بیمار';
+            disBtn.addEventListener('click', () => dischargePatient(p.nationalId));
+            actionTd.appendChild(disBtn);
+
+            tr.appendChild(actionTd);
+            tbody.appendChild(tr);
+        });
+    } catch (err) {
+    }
+}
+
+async function cancelPatientAdmission(nid) {
+    try {
+        const res = await apiFetch(`/api/clinical/patients/${encodeURIComponent(nid)}/cancel`, {method: 'PUT'});
+        if (!res.ok) throw await res.json();
+        log(`پذیرش بیمار ${nid} لغو شد.`);
+        loadQueue();
+    } catch (err) {
+        log(`خطا در لغو پذیرش: ${err.message}`, true);
+    }
+}
+
+async function dischargePatient(nid) {
+    try {
+        const res = await apiFetch(`/api/clinical/patients/${encodeURIComponent(nid)}/discharge`, {method: 'PUT'});
+        if (!res.ok) throw await res.json();
+        log(`بیمار ${nid} با موفقیت ترخیص شد.`);
+        loadReadyForDischarge();
+    } catch (err) {
+        log(`خطا در ترخیص بیمار: ${err.message}`, true);
+    }
+}
+
+// ==================== ۲. اتاق معاینه پزشک ====================
+function applyClinicalTemplate(diag, rx, notes) {
+    document.getElementById('c-diag').value = diag;
+    document.getElementById('c-rx').value = rx;
+    document.getElementById('c-notes').value = notes;
+    flashInput('c-diag');
+    showToast('قالب نسخه آماده جایگذاری شد.');
+}
+
+async function loadDoctorQueue() {
+    try {
+        const res = await apiFetch('/api/clinical/patients/status/WAITING_FOR_DOCTOR');
+        if (!res.ok) throw await res.json();
+        const data = await res.json();
+        const tbody = document.getElementById('doctor-queue-table');
+        tbody.replaceChildren();
+
+        if (data.length === 0) {
+            const tr = document.createElement('tr');
+            const td = createCell('هیچ بیماری در صف انتظار معاینه نیست.', 'text-align:center; color:var(--text-sub);');
+            td.colSpan = 6;
+            tr.appendChild(td);
+            tbody.appendChild(tr);
+            return;
+        }
+
+        data.forEach(p => {
+            const tr = document.createElement('tr');
+            tr.appendChild(createCell(p.patientId, 'font-family:monospace; color:var(--primary); font-weight:700;'));
+            tr.appendChild(createCell(p.nationalId));
+            tr.appendChild(createCell(p.fullName, 'font-weight:700;'));
+            tr.appendChild(createCell(p.age));
+            tr.appendChild(createCell(p.bloodType));
+
+            const actionTd = document.createElement('td');
+            const selBtn = document.createElement('button');
+            selBtn.className = 'action-btn btn-sm';
+            selBtn.textContent = '🩺 انتخاب جهت ویزیت';
+            selBtn.addEventListener('click', () => {
+                document.getElementById('c-nid').value = p.nationalId;
+                flashInput('c-diag');
+                showToast(`بیمار ${p.fullName} برای معاینه انتخاب شد.`);
+            });
+
+            const histBtn = document.createElement('button');
+            histBtn.className = 'action-btn btn-secondary btn-sm';
+            histBtn.textContent = '📂 سوابق';
+            histBtn.addEventListener('click', () => openPatientHistoryModal(p.nationalId, p.fullName));
+
+            actionTd.appendChild(selBtn);
+            actionTd.appendChild(histBtn);
+            tr.appendChild(actionTd);
+            tbody.appendChild(tr);
+        });
+    } catch (err) {
+    }
+}
+
+function openPatientHistoryFromInput() {
+    const nid = document.getElementById('c-nid').value.trim();
+    if (!nid) return showToast('ابتدا کد ملی بیمار را وارد یا از جدول انتخاب کنید.', 'error');
+    openPatientHistoryModal(nid, nid);
+}
+
+async function openPatientHistoryModal(nid, name) {
+    try {
+        const res = await apiFetch(`/api/clinical/records/patient/${encodeURIComponent(nid)}`);
+        if (!res.ok) throw await res.json();
+        const records = await res.json();
+
+        document.getElementById('history-modal-title').textContent = `📂 سوابق بالینی بیمار: ${name} (${nid})`;
+        document.getElementById('amend-form-box').style.display = 'none';
+        const listEl = document.getElementById('history-records-list');
+        listEl.replaceChildren();
+
+        if (records.length === 0) {
+            const empty = document.createElement('p');
+            empty.style.color = 'var(--text-sub)';
+            empty.textContent = 'هیچ سابقه معاینه‌ای برای این بیمار ثبت نشده است.';
+            listEl.appendChild(empty);
+        } else {
+            records.forEach(r => {
+                const item = document.createElement('div');
+                item.className = 'sub-box';
+                item.style.marginTop = '12px';
+
+                const head = document.createElement('div');
+                head.style.cssText = 'display:flex; justify-content:space-between; margin-bottom:10px;';
+                const idSpan = document.createElement('b');
+                idSpan.style.color = 'var(--primary)';
+                idSpan.textContent = `پرونده #${r.recordId.substring(0, 8)} (${r.recordStatus})`;
+                const hashSpan = document.createElement('span');
+                hashSpan.className = 'badge badge-success';
+                hashSpan.textContent = `HMAC: ${r.integrityHash ? r.integrityHash.substring(0, 12) : ''}...`;
+                head.appendChild(idSpan);
+                head.appendChild(hashSpan);
+
+                const diagP = document.createElement('p');
+                diagP.textContent = `تشخیص: ${r.diagnosis}`;
+                const rxP = document.createElement('p');
+                rxP.textContent = `نسخه: ${r.prescription}`;
+                const noteP = document.createElement('p');
+                noteP.style.color = 'var(--text-sub)';
+                noteP.textContent = `یادداشت: ${r.notes}`;
+
+                const amendBtn = document.createElement('button');
+                amendBtn.className = 'action-btn btn-secondary btn-sm';
+                amendBtn.style.marginTop = '10px';
+                amendBtn.textContent = '✏️ اصلاح این پرونده';
+                amendBtn.addEventListener('click', () => {
+                    document.getElementById('amend-record-id').value = r.recordId;
+                    document.getElementById('amend-diag').value = r.diagnosis;
+                    document.getElementById('amend-rx').value = r.prescription;
+                    document.getElementById('amend-reason').value = '';
+                    document.getElementById('amend-form-box').style.display = 'block';
+                });
+
+                item.appendChild(head);
+                item.appendChild(diagP);
+                item.appendChild(rxP);
+                item.appendChild(noteP);
+                item.appendChild(amendBtn);
+                listEl.appendChild(item);
+            });
+        }
+
+        document.getElementById('history-modal').style.display = 'flex';
+    } catch (err) {
+        log(`خطا در دریافت سوابق پزشکی: ${err.message}`, true);
+    }
+}
+
+async function submitAmendRecord() {
+    const recId = document.getElementById('amend-record-id').value;
+    const payload = {
+        updatedDiagnosis: document.getElementById('amend-diag').value.trim(),
+        updatedPrescription: document.getElementById('amend-rx').value.trim(),
+        reason: document.getElementById('amend-reason').value.trim()
+    };
+    try {
+        const res = await apiFetch(`/api/clinical/records/${encodeURIComponent(recId)}/amend`, {
+            method: 'PUT',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        if (!res.ok) throw data;
+        log(`الحاقیه پرونده پزشکی ثبت شد (${data.recordId}).`);
+        closeModal('history-modal');
+    } catch (err) {
+        log(`خطا در اصلاح پرونده: ${err.message}`, true);
+    }
+}
+
+async function submitConsultation() {
+    const payload = {
+        patientNationalId: document.getElementById('c-nid').value.trim(),
+        diagnosis: document.getElementById('c-diag').value.trim(),
+        prescription: document.getElementById('c-rx').value.trim(),
+        notes: document.getElementById('c-notes').value.trim()
+    };
+
+    try {
+        const res = await apiFetch('/api/clinical/records/consultation', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        if (!res.ok) throw data;
+        log(`معاینه بیمار ${payload.patientNationalId} ثبت و به صندوق ارجاع شد.`);
+        document.getElementById('c-nid').value = '';
+        document.getElementById('c-diag').value = '';
+        document.getElementById('c-rx').value = '';
+        document.getElementById('c-notes').value = '';
+        loadDoctorQueue();
+    } catch (err) {
+        log(`خطا در ثبت ویزیت: ${err.message || 'نقص اطلاعات'}`, true);
+    }
+}
+
+// ==================== ۳. امور مالی و صندوق ====================
+function loadBillingAll() {
+    loadFinancialSummary();
+    loadBillingQueue();
+    loadAllReceipts();
+}
+
+async function loadFinancialSummary() {
+    try {
+        const res = await apiFetch('/api/billing/summary');
+        if (!res.ok) return;
+        const s = await res.json();
+        document.getElementById('fin-gross').textContent = `${s.grossRevenue} $`;
+        document.getElementById('fin-discount').textContent = `${s.totalDiscounts} $`;
+        document.getElementById('fin-tax').textContent = `${s.totalTax} $`;
+        document.getElementById('fin-net').textContent = `${s.netCollectedRevenue} $`;
+        document.getElementById('fin-pending').textContent = `${s.pendingReceivables} $`;
+
+        const intEl = document.getElementById('fin-integrity');
+        if (s.allReceiptsCryptographicallyIntact) {
+            intEl.textContent = `معتبر (${s.totalPaidReceipts} رسید) ✓`;
+            intEl.style.color = 'var(--success)';
+        } else {
+            intEl.textContent = 'مخدوش شده ⚠️';
+            intEl.style.color = 'var(--danger)';
+        }
+
+        const chartEl = document.getElementById('payment-methods-chart');
+        chartEl.replaceChildren();
+        const netTotal = parseFloat(s.netCollectedRevenue) || 1;
+        if (s.revenueByPaymentMethod) {
+            Object.entries(s.revenueByPaymentMethod).forEach(([method, val]) => {
+                const numVal = parseFloat(val) || 0;
+                const pct = Math.min(100, Math.max(0, Math.round((numVal / netTotal) * 100)));
+                const box = document.createElement('div');
+                box.className = 'method-bar-item';
+
+                const top = document.createElement('div');
+                top.className = 'method-bar-top';
+                const mLabel = document.createElement('span');
+                mLabel.textContent = method;
+                const mVal = document.createElement('b');
+                mVal.textContent = `${numVal.toFixed(2)} $`;
+                top.appendChild(mLabel);
+                top.appendChild(mVal);
+
+                const track = document.createElement('div');
+                track.className = 'progress-track';
+                const fill = document.createElement('div');
+                fill.className = 'progress-fill';
+                fill.style.width = `${pct}%`;
+                track.appendChild(fill);
+
+                box.appendChild(top);
+                box.appendChild(track);
+                chartEl.appendChild(box);
+            });
+        }
+    } catch (e) {
+    }
+}
+
+function updateNetPayablePreview() {
+    const amt = parseFloat(document.getElementById('b-amount').value) || 0;
+    const disc = parseFloat(document.getElementById('b-discount').value) || 0;
+    const tax = parseFloat(document.getElementById('b-tax').value) || 0;
+    const net = Math.max(0, amt + tax - disc).toFixed(2);
+    document.getElementById('net-payable-preview').textContent = net;
+}
+
+async function lookupDebt() {
+    const nid = document.getElementById('b-nid').value.trim();
+    if (!nid) return showToast('کد ملی را وارد کنید.', 'error');
+    try {
+        const res = await apiFetch(`/api/billing/patient/${encodeURIComponent(nid)}`);
+        const data = await res.json();
+        if (!res.ok) throw data;
+        document.getElementById('debt-patient-name').textContent = data.fullName;
+        document.getElementById('debt-patient-val').textContent = data.pendingBill;
+        document.getElementById('b-amount').value = data.pendingBill;
+        document.getElementById('b-discount').value = '0.00';
+        document.getElementById('b-tax').value = '0.00';
+        updateNetPayablePreview();
+        document.getElementById('debt-info-banner').style.display = 'block';
+    } catch (err) {
+        document.getElementById('debt-info-banner').style.display = 'none';
+        log(`خطا در استعلام بدهی: ${err.message}`, true);
+    }
+}
+
+async function loadBillingQueue() {
+    try {
+        const res = await apiFetch('/api/billing/pending-patients');
+        if (!res.ok) throw await res.json();
+        const data = await res.json();
+        const tbody = document.getElementById('billing-queue-table');
+        tbody.replaceChildren();
+
+        if (data.length === 0) {
+            const tr = document.createElement('tr');
+            const td = createCell('هیچ بیماری در انتظار پرداخت صندوق نیست.', 'text-align:center; color:var(--text-sub);');
+            td.colSpan = 5;
+            tr.appendChild(td);
+            tbody.appendChild(tr);
+            return;
+        }
+
+        data.forEach(p => {
+            const tr = document.createElement('tr');
+            tr.appendChild(createCell(p.nationalId));
+            tr.appendChild(createCell(p.fullName, 'font-weight:700;'));
+            tr.appendChild(createCell(p.assignedDoctorName));
+            tr.appendChild(createCell(`${p.pendingBill} $`, 'color:var(--warning); font-weight:700;'));
+
+            const actionTd = document.createElement('td');
+            const btn = document.createElement('button');
+            btn.className = 'action-btn btn-sm';
+            btn.textContent = '💳 انتخاب جهت تسویه';
+            btn.addEventListener('click', () => {
+                document.getElementById('b-nid').value = p.nationalId;
+                document.getElementById('b-amount').value = p.pendingBill;
+                document.getElementById('b-discount').value = '0.00';
+                document.getElementById('b-tax').value = '0.00';
+                document.getElementById('debt-patient-name').textContent = p.fullName;
+                document.getElementById('debt-patient-val').textContent = p.pendingBill;
+                updateNetPayablePreview();
+                document.getElementById('debt-info-banner').style.display = 'block';
+                flashInput('b-amount');
+            });
+            actionTd.appendChild(btn);
+            tr.appendChild(actionTd);
+            tbody.appendChild(tr);
+        });
+    } catch (err) {
+    }
+}
+
+async function submitPayment() {
+    const nid = document.getElementById('b-nid').value.trim();
+    const amt = parseFloat(document.getElementById('b-amount').value);
+    const disc = parseFloat(document.getElementById('b-discount').value) || 0;
+    const tax = parseFloat(document.getElementById('b-tax').value) || 0;
+    if (!nid || isNaN(amt) || amt <= 0) return showToast('کد ملی و مبلغ معتبر وارد کنید.', 'error');
+
+    const payload = {
+        patientNationalId: nid,
+        amount: amt,
+        discountAmount: disc,
+        taxAmount: tax,
+        method: document.getElementById('b-method').value,
+        description: document.getElementById('b-desc').value.trim() || 'تسویه در باجه صندوق',
+        idempotencyKey: `${nid}-${amt}-${Date.now()}`
+    };
+
+    try {
+        const res = await apiFetch('/api/billing/settle', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        if (!res.ok) throw data;
+        log(`تسویه انجام شد. رسید: ${data.receiptId} | خالص دریافتی: ${data.netTotal} $`);
+        document.getElementById('debt-info-banner').style.display = 'none';
+        document.getElementById('b-nid').value = '';
+        document.getElementById('b-amount').value = '';
+        loadBillingAll();
+        openPrintableReceipt(data);
+    } catch (err) {
+        log(`خطای تسویه: ${err.message}`, true);
+    }
+}
+
+function openPrintableReceipt(r) {
+    const container = document.getElementById('receipt-print-body');
+    container.replaceChildren();
+
+    const rows = [
+        ['شماره رسمی رسید:', r.receiptId],
+        ['کد ملی بیمار:', r.patientNationalId],
+        ['شناسه پزشک معالج:', r.doctorNationalId],
+        ['کاربر صندوق:', r.cashierUsername],
+        ['مبلغ پایه تعرفه:', `${r.amount} $`],
+        ['تخفیف / سهم بیمه:', `${r.discountAmount} $`],
+        ['مالیات:', `${r.taxAmount} $`],
+        ['خالص پرداخت‌شده:', `${r.netTotal} $`],
+        ['مبلغ مستردشده:', `${r.refundedAmount || '0.00'} $`],
+        ['روش پرداخت:', r.paymentMethod],
+        ['وضعیت سند:', r.receiptStatus],
+        ['شرح تراکنش:', r.description || '-'],
+        ['امضای دیجیتال HMAC-SHA256:', r.integrityHash]
+    ];
+
+    rows.forEach(([k, v]) => {
+        const row = document.createElement('div');
+        row.style.cssText = 'display:flex; justify-content:space-between; border-bottom:1px dashed var(--border); padding:5px 0;';
+        const kEl = document.createElement('span');
+        kEl.style.color = 'var(--text-sub)';
+        kEl.textContent = k;
+        const vEl = document.createElement('b');
+        vEl.style.fontFamily = k.includes('HMAC') ? 'monospace' : 'inherit';
+        vEl.style.fontSize = k.includes('HMAC') ? '0.72rem' : '0.88rem';
+        vEl.textContent = v;
+        row.appendChild(kEl);
+        row.appendChild(vEl);
+        container.appendChild(row);
+    });
+
+    document.getElementById('receipt-modal').style.display = 'flex';
+}
+
+async function submitRefund() {
+    const payload = {
+        originalReceiptId: document.getElementById('ref-receipt-id').value.trim(),
+        patientNationalId: document.getElementById('ref-nid').value.trim(),
+        refundAmount: parseFloat(document.getElementById('ref-amount').value),
+        reason: document.getElementById('ref-reason').value.trim()
+    };
+
+    try {
+        const res = await apiFetch('/api/billing/refund', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        if (!res.ok) throw data;
+        log(`استرداد وجه ثبت شد. شماره سند: ${data.receiptId}`);
+        loadBillingAll();
+    } catch (err) {
+        log(`خطا در استرداد وجه: ${err.message}`, true);
+    }
+}
+
+async function loadAllReceipts() {
+    try {
+        const res = await apiFetch('/api/billing/receipts');
+        if (!res.ok) return;
+        const data = await res.json();
+        const tbody = document.getElementById('receipts-table');
+        tbody.replaceChildren();
+
+        if (data.length === 0) {
+            const tr = document.createElement('tr');
+            const td = createCell('هنوز رسیدی صادر نشده است.', 'text-align:center; color:var(--text-sub);');
+            td.colSpan = 9;
+            tr.appendChild(td);
+            tbody.appendChild(tr);
+            return;
+        }
+
+        data.forEach(r => {
+            const tr = document.createElement('tr');
+            tr.appendChild(createCell(r.receiptId, 'font-family:monospace; color:var(--primary); font-weight:700;'));
+            tr.appendChild(createCell(r.patientNationalId));
+            tr.appendChild(createCell(r.cashierUsername));
+            tr.appendChild(createCell(`${r.amount} $`));
+            tr.appendChild(createCell(`${r.discountAmount} $`));
+            tr.appendChild(createCell(`${r.netTotal} $`, 'font-weight:700;'));
+            tr.appendChild(createCell(r.paymentMethod));
+
+            const stTd = document.createElement('td');
+            const badge = document.createElement('span');
+            if (r.receiptStatus === 'PAID') {
+                badge.className = 'badge badge-success';
+            } else if (r.receiptStatus === 'PARTIALLY_REFUNDED') {
+                badge.className = 'badge badge-warning';
+            } else {
+                badge.className = 'badge badge-danger';
+            }
+            badge.textContent = r.receiptStatus;
+            stTd.appendChild(badge);
+            tr.appendChild(stTd);
+
+            const printTd = document.createElement('td');
+            const pBtn = document.createElement('button');
+            pBtn.className = 'action-btn btn-secondary btn-sm';
+            pBtn.textContent = '🖨️ چاپ';
+            pBtn.addEventListener('click', () => openPrintableReceipt(r));
+            printTd.appendChild(pBtn);
+            tr.appendChild(printTd);
+
+            tbody.appendChild(tr);
+        });
+    } catch (e) {
+    }
+}
+
+// ==================== ۴. مدیریت پرسنل ====================
+function toggleRoleFields() {
+    const role = document.getElementById('reg-role').value;
+    document.getElementById('doc-lic-group').style.display = role === 'DOCTOR' ? 'flex' : 'none';
+    document.getElementById('doc-spec-group').style.display = role === 'DOCTOR' ? 'flex' : 'none';
+    document.getElementById('cashier-lim-group').style.display = role === 'CASHIER' ? 'flex' : 'none';
+}
+
+async function submitRegisterStaff() {
+    const payload = {
+        username: document.getElementById('reg-user').value.trim(),
+        password: document.getElementById('reg-pass').value,
+        nationalId: document.getElementById('reg-nid').value.trim(),
+        fullName: document.getElementById('reg-name').value.trim(),
+        age: parseInt(document.getElementById('reg-age').value, 10),
+        contactNumber: document.getElementById('reg-phone').value.trim(),
+        baseSalary: 20000,
+        role: document.getElementById('reg-role').value,
+        specialization: document.getElementById('reg-spec').value,
+        medicalLicenseNumber: document.getElementById('reg-med-id').value.trim(),
+        maxTransactionLimit: parseFloat(document.getElementById('reg-limit').value) || 50000
+    };
+
+    try {
+        const res = await apiFetch('/api/auth/register', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        if (!res.ok) throw data;
+        log(`حساب پرسنلی '${data.username}' ایجاد شد.`);
+        loadStaffList();
+    } catch (err) {
+        log(`خطا در ایجاد پرسنل: ${err.message}`, true);
+    }
+}
+
+async function loadStaffList() {
+    try {
+        const res = await apiFetch('/api/admin/staff');
+        if (!res.ok) throw await res.json();
+        const data = await res.json();
+        const tbody = document.getElementById('staff-table');
+        tbody.replaceChildren();
+
+        data.forEach(s => {
+            const tr = document.createElement('tr');
+            tr.appendChild(createCell(s.staffId, 'font-family:monospace;'));
+            tr.appendChild(createCell(s.username, 'font-weight:700; color:var(--primary);'));
+            tr.appendChild(createCell(s.fullName));
+            tr.appendChild(createCell(s.nationalId));
+            tr.appendChild(createCell(s.role));
+
+            const stTd = document.createElement('td');
+            const badge = document.createElement('span');
+            badge.className = 'badge ' + (s.active ? 'badge-success' : 'badge-danger');
+            badge.textContent = s.active ? 'ACTIVE' : 'SUSPENDED';
+            stTd.appendChild(badge);
+            tr.appendChild(stTd);
+
+            const actTd = document.createElement('td');
+            const btn = document.createElement('button');
+            btn.className = 'action-btn btn-sm ' + (s.active ? 'btn-danger' : 'btn-success');
+            btn.textContent = s.active ? 'تعلیق حساب' : 'فعال‌سازی';
+            btn.addEventListener('click', () => toggleStaff(s.username, !s.active));
+            actTd.appendChild(btn);
+            tr.appendChild(actTd);
+
+            tbody.appendChild(tr);
+        });
+    } catch (err) {
+        log(`خطا در دریافت فهرست پرسنل: ${err.message || 'ارتباط با سرور برقرار نشد.'}`, true);
+    }
+}
+
+async function toggleStaff(username, activeState) {
+    try {
+        const res = await apiFetch(`/api/admin/staff/${encodeURIComponent(username)}/status?isActive=${activeState}`, {method: 'PUT'});
+        if (!res.ok) throw await res.json();
+        log(`وضعیت پرسنل '${username}' تغییر کرد.`);
+        loadStaffList();
+    } catch (err) {
+        log(`خطا در تغییر وضعیت پرسنل: ${err.message}`, true);
+    }
+}
+
+// ==================== ۵. زنجیره حسابرسی امنیتی ====================
+async function loadAuditTrail() {
+    try {
+        const res = await apiFetch('/api/admin/audit');
+        if (!res.ok) throw await res.json();
+        const data = await res.json();
+        const tbody = document.getElementById('audit-table');
+        tbody.replaceChildren();
+
+        document.getElementById('kpi-count').textContent = `${data.length} بلوک`;
+        if (data.length > 0) {
+            const lastEntry = data[data.length - 1];
+            document.getElementById('kpi-last-hash').textContent = lastEntry.entryHash.substring(0, 18) + '...';
+        }
+
+        data.forEach(l => {
+            const tr = document.createElement('tr');
+            tr.appendChild(createCell(`#${l.sequenceNumber}`, 'font-weight:700; color:var(--primary);'));
+            tr.appendChild(createCell(l.timestamp, 'font-size:0.78rem; color:var(--text-sub);'));
+
+            const actorTd = document.createElement('td');
+            const userBold = document.createElement('b');
+            userBold.textContent = l.actorUsername + ' ';
+            const roleSpan = document.createElement('span');
+            roleSpan.className = 'badge badge-role';
+            roleSpan.textContent = l.actorRole || 'SYSTEM';
+            actorTd.appendChild(userBold);
+            actorTd.appendChild(roleSpan);
+            tr.appendChild(actorTd);
+
+            const actionTd = document.createElement('td');
+            const actBold = document.createElement('b');
+            actBold.textContent = l.action;
+            const detSmall = document.createElement('div');
+            detSmall.style.cssText = 'font-size:0.76rem; color:var(--text-sub);';
+            detSmall.textContent = l.details || '';
+            actionTd.appendChild(actBold);
+            actionTd.appendChild(detSmall);
+            tr.appendChild(actionTd);
+
+            tr.appendChild(createCell(l.terminalOrIp || '127.0.0.1', 'font-family:monospace; font-size:0.8rem;'));
+
+            const stTd = document.createElement('td');
+            const stBadge = document.createElement('span');
+            stBadge.className = 'badge ' + (l.status === 'SUCCESS' ? 'badge-success' : 'badge-danger');
+            stBadge.textContent = l.status;
+            stTd.appendChild(stBadge);
+            tr.appendChild(stTd);
+
+            const prevTd = createCell(l.previousHash.substring(0, 10) + '...', 'font-family:monospace; font-size:0.75rem; color:var(--text-muted);');
+            prevTd.title = l.previousHash;
+            tr.appendChild(prevTd);
+
+            const currTd = createCell(l.entryHash.substring(0, 14) + '...', 'font-family:monospace; font-size:0.75rem; color:var(--primary);');
+            currTd.title = l.entryHash;
+            tr.appendChild(currTd);
+
+            tbody.appendChild(tr);
+        });
+    } catch (err) {
+        log(`خطا در دریافت زنجیره حسابرسی: ${err.message || 'ارتباط با سرور برقرار نشد.'}`, true);
+    }
+}
+
+async function verifyChainIntegrity() {
+    try {
+        const res = await apiFetch('/api/admin/audit/verify');
+        const data = await res.json();
+        const kpiIntegrity = document.getElementById('kpi-integrity');
+        if (data.intact) {
+            kpiIntegrity.textContent = 'معتبر و بدون دستکاری ✓';
+            kpiIntegrity.style.color = 'var(--success)';
+            log(`صحت ریاضی زنجیره تایید شد (${data.totalBlocks} بلوک).`);
+        } else {
+            kpiIntegrity.textContent = 'مخدوش شده ⚠️';
+            kpiIntegrity.style.color = 'var(--danger)';
+            log('هشدار امنیتی: زنجیره حسابرسی مخدوش شده است!', true);
+        }
+    } catch (e) {
+        log('خطا در بررسی زنجیره: ' + e.message, true);
+    }
+}
+
+checkSession();
+</file>
+
+<file path="src/main/resources/static/index.html">
+<!DOCTYPE html>
+<html lang="fa" dir="rtl" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>سامانه جامع مدیریت درمانگاه | Enterprise Clinic Suite v3.0</title>
+    <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+
+<div id="toast-container" role="status" aria-live="polite" aria-atomic="true"></div>
+
+<!-- ==================== پنجره رسمی ورود به سامانه ==================== -->
+<div id="auth-overlay">
+    <div class="auth-card">
+        <div class="auth-logo">✚</div>
+        <div class="auth-title">سامانه هوشمند مدیریت درمانگاه</div>
+        <div class="auth-subtitle">پلتفرم یکپارچه بالینی، مالی و حسابرسی رمزنگاری‌شده (Enterprise v3.0)</div>
+
+        <div id="auth-error-box" class="auth-error" role="alert"></div>
+
+        <form id="auth-login-form" onsubmit="event.preventDefault(); submitLogin();">
+            <div class="form-group" style="margin-bottom: 16px;">
+                <label for="login-user">نام کاربری سازمانی</label>
+                <input type="text" id="login-user" autocomplete="username" required maxlength="64" placeholder="نام کاربری خود را وارد کنید...">
+            </div>
+            <div class="form-group" style="margin-bottom: 24px;">
+                <label for="login-pass">رمز عبور</label>
+                <input type="password" id="login-pass" autocomplete="current-password" required maxlength="128" placeholder="رمز عبور خود را وارد کنید...">
+            </div>
+            <button type="submit" class="action-btn" style="width: 100%; padding: 13px; font-size: 0.95rem;">
+                🔐 ورود امن به سامانه
+            </button>
+        </form>
+
+        <div style="margin-top: 22px; padding-top: 14px; border-top: 1px solid var(--glass-border); display: flex; justify-content: space-between; font-size: 0.75rem; color: var(--text-muted);">
+            <span>🛡️ محافظت‌شده با RBAC و Rate-Limiting</span>
+            <span style="font-family: monospace;">HMAC-SHA256</span>
+        </div>
+    </div>
+</div>
+
+<!-- ==================== مدال چاپ فاکتور رسمی ==================== -->
+<div id="receipt-modal" class="modal-backdrop">
+    <div class="modal-card">
+        <div class="modal-header">
+            <h3>🧾 صورتحساب و رسید رسمی درمانگاه</h3>
+            <button type="button" class="action-btn btn-secondary btn-sm" onclick="closeModal('receipt-modal')">بستن ✕</button>
+        </div>
+        <div id="receipt-print-body" style="line-height: 2; font-size: 0.88rem;"></div>
+        <div style="margin-top: 18px; display: flex; justify-content: flex-end; gap: 8px;">
+            <button type="button" class="action-btn btn-success" onclick="window.print()">🖨️ چاپ فاکتور / ذخیره PDF</button>
+        </div>
+    </div>
+</div>
+
+<!-- ==================== مدال سوابق پزشکی ==================== -->
+<div id="history-modal" class="modal-backdrop">
+    <div class="modal-card">
+        <div class="modal-header">
+            <h3 id="history-modal-title">📂 سوابق بالینی بیمار</h3>
+            <button type="button" class="action-btn btn-secondary btn-sm" onclick="closeModal('history-modal')">بستن ✕</button>
+        </div>
+        <div id="history-records-list"></div>
+
+        <div class="sub-box" id="amend-form-box" style="display:none; margin-top:16px;">
+            <h4>✏️ ثبت الحاقیه و اصلاح پرونده پزشکی (Amend Record)</h4>
+            <input type="hidden" id="amend-record-id">
+            <div class="form-grid" style="margin-top:12px;">
+                <div class="form-group"><label>تشخیص اصلاح‌شده</label><input type="text" id="amend-diag"></div>
+                <div class="form-group"><label>نسخه اصلاح‌شده</label><input type="text" id="amend-rx"></div>
+                <div class="form-group"><label>علت اصلاح پرونده</label><input type="text" id="amend-reason"></div>
+            </div>
+            <button type="button" class="action-btn btn-success btn-sm" onclick="submitAmendRecord()">✅ ثبت نهایی الحاقیه</button>
+        </div>
+    </div>
+</div>
+
+<!-- ==================== نوار کناری شناور ==================== -->
+<aside>
+    <div class="sidebar-brand">
+        <div class="brand-icon">✚</div>
+        <div>
+            <div style="font-weight:800; font-size:1.02rem; color:var(--text-main);">کلینیک هوشمند</div>
+            <div style="font-size:0.75rem; color:var(--primary); font-weight:700;">Enterprise Suite v3.0</div>
+        </div>
+    </div>
+
+    <div class="nav-list">
+        <button type="button" class="nav-btn" id="nav-intake" onclick="switchNav('intake')">📋 پذیرش، تریاژ و ترخیص</button>
+        <button type="button" class="nav-btn" id="nav-clinical" onclick="switchNav('clinical')">🩺 اتاق معاینه پزشک</button>
+        <button type="button" class="nav-btn" id="nav-billing" onclick="switchNav('billing')">💳 صندوق و امور مالی</button>
+        <button type="button" class="nav-btn" id="nav-staff" onclick="switchNav('staff')">👥 مدیریت پرسنل</button>
+        <button type="button" class="nav-btn" id="nav-audit" onclick="switchNav('audit')">🛡️ حسابرسی امنیتی</button>
+    </div>
+
+    <div class="sidebar-footer">
+        <span><span class="status-dot"></span>هسته امنیتی فعال</span>
+        <span style="font-family:monospace; color:var(--primary-bright);">v3.0.0</span>
+    </div>
+</aside>
+
+<!-- ==================== بخش اصلی ==================== -->
+<main>
+    <header>
+        <div class="quick-switch-bar" style="padding: 7px 14px;">
+            <span class="status-dot"></span>
+            <span style="font-size:0.78rem; color:var(--text-secondary); font-weight:700;">
+                نشست امن سازمانی فعال | یکپارچگی داده‌ها: HMAC-SHA256
+            </span>
+        </div>
+
+        <div class="header-right">
+            <span id="live-jalali-clock" style="font-size:0.81rem; color:var(--text-secondary); font-weight:600;"></span>
+            <button type="button" class="action-btn btn-secondary btn-sm" onclick="toggleTheme()" id="theme-btn">☀️ تم روشن</button>
+            <b id="current-user-name" style="font-size:0.9rem; color:var(--text-main);">-</b>
+            <span class="role-tag" id="current-user-role">-</span>
+            <button type="button" class="action-btn btn-danger btn-sm" onclick="submitLogout()">خروج</button>
+        </div>
+    </header>
+
+    <div class="workflow-stepper">
+        <div class="step-item">
+            <div class="step-num">۱</div>
+            <div class="step-info">
+                <h5>پذیرش و تریاژ بالینی</h5>
+                <p>ثبت بیمار و علائم حیاتی اولیه</p>
+            </div>
+        </div>
+        <div class="step-item">
+            <div class="step-num">۲</div>
+            <div class="step-info">
+                <h5>معاینه تخصصی پزشک</h5>
+                <p>ثبت تشخیص، نسخه و ارجاع مالی</p>
+            </div>
+        </div>
+        <div class="step-item">
+            <div class="step-num">۳</div>
+            <div class="step-info">
+                <h5>صندوق و تسویه حساب</h5>
+                <p>دریافت وجه، تخفیف و صدور رسید</p>
+            </div>
+        </div>
+        <div class="step-item">
+            <div class="step-num">۴</div>
+            <div class="step-info">
+                <h5>ترخیص رسمی بیمار</h5>
+                <p>تایید نهایی و خروج از درمانگاه</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- ۱. پنل پذیرش، تریاژ پرستار و ترخیص -->
+    <div id="panel-intake" class="section-panel">
+        <h3>📋 ثبت پذیرش بیمار جدید</h3>
+        <div class="form-grid" style="margin-top:14px;">
+            <div class="form-group">
+                <label>کد ملی بیمار (عددی)</label>
+                <input type="text" id="p-nid" placeholder="مثلاً: 1001234567">
+            </div>
+            <div class="form-group">
+                <label>نام و نام خانوادگی</label>
+                <input type="text" id="p-name" placeholder="نام کامل بیمار">
+            </div>
+            <div class="form-group">
+                <label>سن</label>
+                <input type="number" id="p-age" value="30" min="0" max="150">
+            </div>
+            <div class="form-group">
+                <label>شماره تماس</label>
+                <input type="text" id="p-phone" value="09121112233">
+            </div>
+            <div class="form-group">
+                <label>گروه خونی</label>
+                <select id="p-blood">
+                    <option value="O_POSITIVE">O+</option>
+                    <option value="O_NEGATIVE">O-</option>
+                    <option value="A_POSITIVE">A+</option>
+                    <option value="A_NEGATIVE">A-</option>
+                    <option value="B_POSITIVE">B+</option>
+                    <option value="B_NEGATIVE">B-</option>
+                    <option value="AB_POSITIVE">AB+</option>
+                    <option value="AB_NEGATIVE">AB-</option>
+                    <option value="UNKNOWN">نامشخص</option>
+                </select>
+            </div>
+        </div>
+        <button type="button" class="action-btn" onclick="registerPatient()">➕ ثبت پذیرش بیمار در صف</button>
+
+        <!-- ایستگاه تریاژ و خدمات پرستاری -->
+        <div class="sub-box" id="nurse-triage-box" style="display:none; border-color: var(--glass-border-strong);">
+            <div class="sub-header">
+                <h4>💉 ایستگاه تریاژ بالینی و ثبت علائم حیاتی</h4>
+            </div>
+            <div class="form-grid">
+                <div class="form-group">
+                    <label>کد ملی بیمار</label>
+                    <input type="text" id="t-nid" placeholder="انتخاب از جدول یا ورود کد ملی">
+                </div>
+                <div class="form-group">
+                    <label>فشار خون (سیستول/دیاستول)</label>
+                    <input type="text" id="t-bp" value="120/80" placeholder="مثلاً: 120/80">
+                </div>
+                <div class="form-group">
+                    <label>دمای بدن (°C)</label>
+                    <input type="number" id="t-temp" step="0.1" value="37.0" min="30" max="45">
+                </div>
+                <div class="form-group">
+                    <label>ضربان قلب (BPM)</label>
+                    <input type="number" id="t-hr" value="76" min="20" max="250">
+                </div>
+                <div class="form-group">
+                    <label>شکایت اصلی بیمار</label>
+                    <input type="text" id="t-complaint" placeholder="مثلاً: سرگیجه، تب، درد قفسه سینه...">
+                </div>
+                <div class="form-group">
+                    <label>یادداشت پرستار</label>
+                    <input type="text" id="t-notes" placeholder="ارزیابی اولیه پرستار...">
+                </div>
+            </div>
+            <button type="button" class="action-btn btn-success" onclick="submitNurseTriage()">🩺 ثبت پرونده تریاژ و علائم حیاتی</button>
+        </div>
+
+        <div class="sub-box">
+            <div class="sub-header">
+                <h4>🔍 استعلام وضعیت و پذیرش مجدد بیمار قبلی</h4>
+            </div>
+            <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+                <input type="text" id="lookup-p-nid" placeholder="کد ملی بیمار..." style="width:240px;">
+                <button type="button" class="action-btn btn-secondary btn-sm" onclick="lookupPatientQuick()">🔍 استعلام فوری</button>
+                <button type="button" class="action-btn btn-sm" onclick="reCheckInPatient()">🔄 پذیرش مجدد به صف پزشک</button>
+                <span id="lookup-p-result" style="font-size:0.88rem; font-weight:700; color:var(--primary-bright);"></span>
+            </div>
+        </div>
+
+        <div class="sub-box">
+            <div class="sub-header">
+                <h4>⏳ صف انتظار معاینه پزشک (WAITING_FOR_DOCTOR)</h4>
+                <div style="display:flex; gap:8px;">
+                    <input type="text" placeholder="جستجو در صف..." oninput="filterTable('queue-table', this.value)" style="padding:7px 14px; font-size:0.81rem; width:200px;">
+                    <button type="button" class="action-btn btn-secondary btn-sm" onclick="loadQueue()">🔄 بروزرسانی</button>
+                </div>
+            </div>
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                    <tr>
+                        <th>شناسه پرونده</th>
+                        <th>کد ملی</th>
+                        <th>نام بیمار</th>
+                        <th>گروه خونی</th>
+                        <th>وضعیت</th>
+                        <th>بدهی ($)</th>
+                        <th>عملیات</th>
+                    </tr>
+                    </thead>
+                    <tbody id="queue-table"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="sub-box">
+            <div class="sub-header">
+                <h4>✅ بیماران تسویه‌شده آماده ترخیص (PAYMENT_COMPLETED)</h4>
+                <button type="button" class="action-btn btn-secondary btn-sm" onclick="loadReadyForDischarge()">🔄 بروزرسانی</button>
+            </div>
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                    <tr>
+                        <th>کد ملی</th>
+                        <th>نام بیمار</th>
+                        <th>پزشک معالج</th>
+                        <th>وضعیت</th>
+                        <th>عملیات ترخیص</th>
+                    </tr>
+                    </thead>
+                    <tbody id="discharge-table"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- ۲. پنل معاینه پزشک -->
+    <div id="panel-clinical" class="section-panel">
+        <div class="sub-header">
+            <h3>🩺 صف انتظار بیماران جهت معاینه بالینی</h3>
+            <button type="button" class="action-btn btn-secondary btn-sm" onclick="loadDoctorQueue()">🔄 بروزرسانی صف</button>
+        </div>
+        <div class="table-wrap">
+            <table>
+                <thead>
+                <tr>
+                    <th>شناسه</th>
+                    <th>کد ملی</th>
+                    <th>نام بیمار</th>
+                    <th>سن</th>
+                    <th>گروه خونی</th>
+                    <th>عملیات پزشک</th>
+                </tr>
+                </thead>
+                <tbody id="doctor-queue-table"></tbody>
+            </table>
+        </div>
+
+        <div class="sub-box">
+            <div class="sub-header">
+                <h4>📝 ثبت معاینه بالینی و نسخه الکترونیک</h4>
+                <button type="button" class="action-btn btn-secondary btn-sm" onclick="openPatientHistoryFromInput()">📂 مشاهده سوابق بیمار</button>
+            </div>
+
+            <div class="template-chips">
+                <span style="font-size:0.79rem; color:var(--text-secondary); font-weight:700; align-self:center;">⚡ قالب‌های آماده نسخه:</span>
+                <button type="button" class="tpl-chip" onclick="applyClinicalTemplate('سرماخوردگی و عفونت تنفسی فوقانی', 'آزیترومایسین ۵۰۰ | استامینوفن | سرم شستشو', 'استراحت ۳ روزه و مصرف مایعات گرم')">سرماخوردگی</button>
+                <button type="button" class="tpl-chip" onclick="applyClinicalTemplate('پرفشاری خون اولیه (Hypertension)', 'لوزارتان ۲۵ | آملودیپین ۵', 'رژیم کم‌نمک و پایش روزانه فشار خون')">فشار خون</button>
+                <button type="button" class="tpl-chip" onclick="applyClinicalTemplate('گاستریت حاد معده', 'امپرازول ۲۰ ناشتا | شربت آنتی‌اسید', 'پرهیز از غذاهای اسیدی و تند')">گوارش</button>
+            </div>
+
+            <div class="form-grid">
+                <div class="form-group">
+                    <label>کد ملی بیمار</label>
+                    <input type="text" id="c-nid" placeholder="از جدول بالا انتخاب کنید یا وارد نمایید">
+                </div>
+                <div class="form-group">
+                    <label>تشخیص بالینی (Diagnosis)</label>
+                    <input type="text" id="c-diag" placeholder="تشخیص نهایی پزشک">
+                </div>
+                <div class="form-group">
+                    <label>نسخه دارویی (Prescription)</label>
+                    <input type="text" id="c-rx" placeholder="اقلام دارویی و دستور مصرف">
+                </div>
+            </div>
+            <div class="form-group" style="margin-bottom: 16px;">
+                <label>یادداشت‌های تکمیلی و شرح حال</label>
+                <textarea id="c-notes" rows="2" placeholder="شرح معاینات بالینی و توصیه‌های پزشکی..."></textarea>
+            </div>
+            <button type="button" class="action-btn" onclick="submitConsultation()">✅ ثبت نهایی ویزیت و ارجاع به صندوق</button>
+        </div>
+    </div>
+
+    <!-- ۳. پنل صندوق و امور مالی -->
+    <div id="panel-billing" class="section-panel">
+        <div class="sub-header">
+            <h3>💳 مرکز مالی، تراز صندوق و تسویه حساب</h3>
+            <button type="button" class="action-btn btn-secondary btn-sm" onclick="loadBillingAll()">🔄 بروزرسانی مالی</button>
+        </div>
+
+        <div class="kpi-container">
+            <div class="kpi-card">
+                <div class="kpi-title">درآمد ناخالص (Gross)</div>
+                <div class="kpi-value" id="fin-gross" style="color:var(--primary-bright);">0.00 $</div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-title">تخفیف / سهم بیمه</div>
+                <div class="kpi-value" id="fin-discount" style="color:var(--warning);">0.00 $</div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-title">مالیات دریافتی</div>
+                <div class="kpi-value" id="fin-tax">0.00 $</div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-title">خالص دریافتی صندوق</div>
+                <div class="kpi-value" id="fin-net" style="color:var(--success);">0.00 $</div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-title">مطالبات باز (بدهی بیماران)</div>
+                <div class="kpi-value" id="fin-pending" style="color:var(--danger);">0.00 $</div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-title">سلامت رمزنگاری رسیدها</div>
+                <div class="kpi-value" id="fin-integrity" style="color:var(--success);">۱۰۰٪ معتبر ✓</div>
+            </div>
+        </div>
+
+        <div class="sub-box">
+            <h4>📊 توزیع خالص دریافتی‌ها بر اساس روش پرداخت</h4>
+            <div class="method-bars" id="payment-methods-chart"></div>
+        </div>
+
+        <div class="sub-box" id="cashier-pos-box">
+            <h4>🖥️ پایانه دریافت وجه و صدور فاکتور رسمی (POS Terminal)</h4>
+            <div class="form-grid" style="margin-top: 14px;">
+                <div class="form-group">
+                    <label>کد ملی بیمار</label>
+                    <div class="liquid-input-group">
+                        <input type="text" id="b-nid" placeholder="کد ملی بیمار...">
+                        <button type="button" class="inline-glass-btn" onclick="lookupDebt()">🔍 استعلام</button>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>مبلغ کسر از بدهی ($)</label>
+                    <input type="number" id="b-amount" step="0.01" min="0.01" placeholder="0.00" oninput="updateNetPayablePreview()">
+                </div>
+                <div class="form-group">
+                    <label>تخفیف / سهم بیمه ($)</label>
+                    <input type="number" id="b-discount" step="0.01" min="0" value="0.00" oninput="updateNetPayablePreview()">
+                </div>
+                <div class="form-group">
+                    <label>مالیات ($)</label>
+                    <input type="number" id="b-tax" step="0.01" min="0" value="0.00" oninput="updateNetPayablePreview()">
+                </div>
+                <div class="form-group">
+                    <label>روش پرداخت</label>
+                    <select id="b-method">
+                        <option value="CASH">نقدی (CASH)</option>
+                        <option value="DEBIT_CARD">کارتخوان (DEBIT_CARD)</option>
+                        <option value="CREDIT_CARD">کارت اعتباری (CREDIT_CARD)</option>
+                        <option value="INSURANCE">بیمه (INSURANCE)</option>
+                        <option value="BANK_TRANSFER">حواله بانکی (BANK_TRANSFER)</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>شرح رسید</label>
+                    <input type="text" id="b-desc" value="تسویه در باجه صندوق">
+                </div>
+            </div>
+
+            <div id="debt-info-banner" style="display:none; background:var(--primary-glow); padding:13px 18px; border-radius:16px; margin-bottom:16px; border:1px solid var(--glass-border-strong); font-size:0.9rem; box-shadow:var(--glass-specular-inner);">
+                بیمار: <b id="debt-patient-name">-</b> &nbsp;|&nbsp;
+                مانده بدهی: <b id="debt-patient-val" style="color:var(--warning);">0.00</b> $ &nbsp;|&nbsp;
+                خالص قابل دریافت: <b id="net-payable-preview" style="color:var(--success); font-size:1.05rem;">0.00</b> $
+            </div>
+
+            <button type="button" class="action-btn btn-success" onclick="submitPayment()">💳 ثبت پرداخت و صدور فاکتور رسمی</button>
+        </div>
+
+        <div class="sub-box">
+            <h4>⏳ بیماران بدهکار در انتظار پرداخت (WAITING_FOR_PAYMENT)</h4>
+            <div class="table-wrap" style="margin-top:10px;">
+                <table>
+                    <thead>
+                    <tr>
+                        <th>کد ملی</th>
+                        <th>نام بیمار</th>
+                        <th>پزشک معالج</th>
+                        <th>مانده بدهی ($)</th>
+                        <th>انتخاب سریع</th>
+                    </tr>
+                    </thead>
+                    <tbody id="billing-queue-table"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="sub-box" id="admin-refund-box" style="display:none;">
+            <h4>↩️ استرداد وجه نظارت‌شده (Supervised Partial / Full Refund)</h4>
+            <div class="form-grid" style="margin-top:12px;">
+                <div class="form-group">
+                    <label>شماره رسید اصلی (POS-...)</label>
+                    <input type="text" id="ref-receipt-id" placeholder="POS-XXXXXXXX">
+                </div>
+                <div class="form-group">
+                    <label>کد ملی بیمار</label>
+                    <input type="text" id="ref-nid" placeholder="کد ملی بیمار">
+                </div>
+                <div class="form-group">
+                    <label>مبلغ استرداد ($)</label>
+                    <input type="number" id="ref-amount" step="0.01" min="0.01" placeholder="کامل یا جزئی">
+                </div>
+                <div class="form-group">
+                    <label>علت استرداد</label>
+                    <input type="text" id="ref-reason" placeholder="لغو خدمت / اصلاح صورتحساب">
+                </div>
+            </div>
+            <button type="button" class="action-btn btn-danger" onclick="submitRefund()">↩️ تایید و ثبت استرداد وجه</button>
+        </div>
+
+        <div class="sub-box">
+            <h4>🧾 فهرست رسیدهای صادرشده و چاپ فاکتور</h4>
+            <div class="table-wrap" style="margin-top:10px;">
+                <table>
+                    <thead>
+                    <tr>
+                        <th>شماره رسید</th>
+                        <th>کد ملی بیمار</th>
+                        <th>صندوق‌دار</th>
+                        <th>مبلغ پایه</th>
+                        <th>تخفیف</th>
+                        <th>خالص ($)</th>
+                        <th>روش</th>
+                        <th>وضعیت</th>
+                        <th>چاپ</th>
+                    </tr>
+                    </thead>
+                    <tbody id="receipts-table"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- ۴. پنل مدیریت پرسنل -->
+    <div id="panel-staff" class="section-panel">
+        <h3>👥 مدیریت پرسنل درمانگاه</h3>
+        <div class="sub-box">
+            <h4>➕ تعریف حساب پرسنلی جدید</h4>
+            <div class="form-grid" style="margin-top: 12px;">
+                <div class="form-group"><label>نام کاربری</label><input type="text" id="reg-user" placeholder="حداقل ۳ کاراکتر"></div>
+                <div class="form-group"><label>رمز عبور</label><input type="password" id="reg-pass" placeholder="حداقل ۶ کاراکتر"></div>
+                <div class="form-group"><label>کد ملی</label><input type="text" id="reg-nid" placeholder="کد ملی ۱۰ رقمی"></div>
+                <div class="form-group"><label>نام کامل</label><input type="text" id="reg-name" placeholder="نام و نام خانوادگی"></div>
+                <div class="form-group"><label>سن (حداقل ۱۸)</label><input type="number" id="reg-age" value="30" min="18" max="100"></div>
+                <div class="form-group"><label>شماره تماس</label><input type="text" id="reg-phone" value="09120000000"></div>
+                <div class="form-group">
+                    <label>نقش سازمانی</label>
+                    <select id="reg-role" onchange="toggleRoleFields()">
+                        <option value="DOCTOR">پزشک (DOCTOR)</option>
+                        <option value="NURSE">پرستار (NURSE)</option>
+                        <option value="CASHIER">صندوق‌دار (CASHIER)</option>
+                        <option value="RECEPTIONIST">پذیرش (RECEPTIONIST)</option>
+                        <option value="FINANCIAL_ADMIN">مدیر مالی (FINANCIAL_ADMIN)</option>
+                        <option value="HR_ADMIN">مدیر منابع انسانی (HR_ADMIN)</option>
+                        <option value="AUDITOR">بازرس امنیتی (AUDITOR)</option>
+                        <option value="SUPER_ADMIN">مدیر ارشد (SUPER_ADMIN)</option>
+                    </select>
+                </div>
+                <div class="form-group" id="doc-lic-group">
+                    <label>شماره نظام پزشکی</label>
+                    <input type="text" id="reg-med-id" placeholder="MED-1234">
+                </div>
+                <div class="form-group" id="doc-spec-group">
+                    <label>تخصص پزشک</label>
+                    <select id="reg-spec">
+                        <option value="GENERAL_PRACTICE">عمومی</option>
+                        <option value="INTERNAL_MEDICINE">داخلی</option>
+                        <option value="CARDIOLOGY">قلب و عروق</option>
+                        <option value="PEDIATRICS">اطفال</option>
+                        <option value="DERMATOLOGY">پوست</option>
+                    </select>
+                </div>
+                <div class="form-group" id="cashier-lim-group" style="display:none;">
+                    <label>سقف مجاز تراکنش ($)</label>
+                    <input type="number" id="reg-limit" value="50000">
+                </div>
+            </div>
+            <button type="button" class="action-btn" onclick="submitRegisterStaff()">➕ ایجاد حساب پرسنل</button>
+        </div>
+
+        <div class="sub-box">
+            <div class="sub-header">
+                <h4>📋 فهرست پرسنل فعال و تعلیق‌شده</h4>
+                <button type="button" class="action-btn btn-secondary btn-sm" onclick="loadStaffList()">🔄 بروزرسانی</button>
+            </div>
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                    <tr>
+                        <th>شناسه</th>
+                        <th>نام کاربری</th>
+                        <th>نام کامل</th>
+                        <th>کد ملی</th>
+                        <th>نقش</th>
+                        <th>وضعیت</th>
+                        <th>عملیات</th>
+                    </tr>
+                    </thead>
+                    <tbody id="staff-table"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- ۵. پنل حسابرسی امنیتی -->
+    <div id="panel-audit" class="section-panel">
+        <div class="sub-header">
+            <div>
+                <h3>🛡️ مرکز پایش یکپارچگی و زنجیره حسابرسی (HMAC-SHA256 Audit Chain)</h3>
+                <p style="font-size:0.81rem; color:var(--text-sub); margin-top:4px;">تمامی وقایع با هش زنجیره‌ای و لنگر رمزنگاری‌شده ثبت و راستی‌آزمایی می‌شوند.</p>
+            </div>
+            <div style="display:flex; gap:8px;">
+                <button type="button" class="action-btn btn-success" onclick="verifyChainIntegrity()">🔍 راستی‌آزمایی زنجیره</button>
+                <button type="button" class="action-btn btn-secondary" onclick="loadAuditTrail()">🔄 بروزرسانی</button>
+            </div>
+        </div>
+
+        <div class="kpi-container">
+            <div class="kpi-card">
+                <div class="kpi-title">وضعیت سلامت زنجیره</div>
+                <div class="kpi-value" id="kpi-integrity" style="color:var(--success);">معتبر ✓</div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-title">تعداد بلوک‌های ثبت‌شده</div>
+                <div class="kpi-value" id="kpi-count" style="color:var(--primary-bright);">-</div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-title">الگوریتم امضای لنگر</div>
+                <div class="kpi-value" style="color:var(--warning);">HMAC-SHA256</div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-title">آخرین هش (Head Hash)</div>
+                <div class="kpi-value" id="kpi-last-hash" style="font-family:monospace; font-size:0.86rem;">-</div>
+            </div>
+        </div>
+
+        <div class="table-wrap">
+            <table>
+                <thead>
+                <tr>
+                    <th>ردیف</th>
+                    <th>زمان ثبت</th>
+                    <th>کاربر و نقش</th>
+                    <th>عملیات و جزئیات</th>
+                    <th>آدرس IP</th>
+                    <th>وضعیت</th>
+                    <th>هش قبلی</th>
+                    <th>هش جاری</th>
+                </tr>
+                </thead>
+                <tbody id="audit-table"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- ==================== داک شیشه‌ای ترمینال رخدادهای زنده ==================== -->
+    <section class="telemetry-dock">
+        <div class="telemetry-header">
+            <div class="telemetry-title-group">
+                <div class="mac-dots">
+                    <span class="mac-dot red"></span>
+                    <span class="mac-dot yellow"></span>
+                    <span class="mac-dot green"></span>
+                </div>
+                <span>ترمینال زنده رخدادهای هسته | Live Kernel Telemetry</span>
+            </div>
+            <button type="button" class="telemetry-clear-btn" onclick="clearConsoleLog()">پاکسازی گزارش ✕</button>
+        </div>
+        <div id="console-log"></div>
+    </section>
+</main>
+
+<script src="/app.js"></script>
+</body>
+</html>
+</file>
+
+<file path="src/main/resources/static/styles.css">
+@import url('https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/Vazirmatn-font-face.css');
+
+:root[data-theme="dark"] {
+    /* پس‌زمینه عمیق فضایی برای ایجاد بیشترین کنتراست با متن سفید */
+    --bg-base: #030712;
+    --bg-mesh:
+            radial-gradient(at 12% 15%, rgba(14, 165, 233, 0.22) 0px, transparent 48%),
+            radial-gradient(at 88% 12%, rgba(99, 102, 241, 0.20) 0px, transparent 50%),
+            radial-gradient(at 50% 88%, rgba(16, 185, 129, 0.14) 0px, transparent 55%),
+            linear-gradient(160deg, #030712 0%, #070d1f 55%, #030712 100%);
+
+    /* لایه‌های شیشه مایع (Liquid Glass Surfaces) با کنتراست بالا */
+    --glass-surface: rgba(13, 20, 38, 0.72);
+    --glass-card: rgba(17, 26, 48, 0.68);
+    --glass-card-hover: rgba(24, 36, 66, 0.80);
+    --glass-well: rgba(6, 10, 22, 0.82);
+    --glass-modal: rgba(12, 19, 36, 0.88);
+
+    /* بازتاب‌های لبه‌ای شیشه اپل (Specular Rim Highlights) */
+    --glass-border: rgba(255, 255, 255, 0.14);
+    --glass-border-strong: rgba(56, 189, 248, 0.45);
+    --glass-specular-top: inset 0 1px 1px 0 rgba(255, 255, 255, 0.32);
+    --glass-specular-inner: inset 0 1px 1px 0 rgba(255, 255, 255, 0.26), inset 0 -1px 1px 0 rgba(255, 255, 255, 0.05);
+    --glass-shadow: 0 20px 45px -12px rgba(0, 0, 0, 0.7), var(--glass-specular-inner);
+    --glass-shadow-sm: 0 10px 28px -8px rgba(0, 0, 0, 0.55), var(--glass-specular-inner);
+
+    /* رنگ‌های نوری و کنتراست متن (WCAG AAA Contrast) */
+    --text-main: #ffffff;
+    --text-secondary: #e2e8f0;
+    --text-sub: #cbd5e1;
+    --text-muted: #94a3b8;
+
+    --primary: #38bdf8;
+    --primary-bright: #7dd3fc;
+    --primary-glow: rgba(56, 189, 248, 0.20);
+    --accent: #818cf8;
+    --liquid-blue: linear-gradient(135deg, #0ea5e9 0%, #3b82f6 50%, #6366f1 100%);
+    --liquid-emerald: linear-gradient(135deg, #10b981 0%, #059669 100%);
+    --liquid-rose: linear-gradient(135deg, #f43f5e 0%, #e11d48 100%);
+    --liquid-amber: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+
+    --success: #34d399;
+    --success-bg: rgba(16, 185, 129, 0.20);
+    --warning: #fbbf24;
+    --warning-bg: rgba(245, 158, 11, 0.22);
+    --danger: #fb7185;
+    --danger-bg: rgba(244, 63, 94, 0.22);
+}
+
+:root[data-theme="light"] {
+    --bg-base: #eef2f6;
+    --bg-mesh:
+            radial-gradient(at 15% 15%, rgba(14, 165, 233, 0.16) 0px, transparent 50%),
+            radial-gradient(at 85% 15%, rgba(99, 102, 241, 0.14) 0px, transparent 50%),
+            radial-gradient(at 50% 85%, rgba(16, 185, 129, 0.10) 0px, transparent 55%),
+            linear-gradient(160deg, #f8fafc 0%, #e2e8f0 100%);
+
+    --glass-surface: rgba(255, 255, 255, 0.78);
+    --glass-card: rgba(255, 255, 255, 0.85);
+    --glass-card-hover: rgba(255, 255, 255, 0.96);
+    --glass-well: rgba(241, 245, 249, 0.92);
+    --glass-modal: rgba(255, 255, 255, 0.94);
+
+    --glass-border: rgba(15, 23, 42, 0.12);
+    --glass-border-strong: rgba(2, 132, 199, 0.50);
+    --glass-specular-inner: inset 0 1px 1px 0 rgba(255, 255, 255, 0.9), inset 0 -1px 1px 0 rgba(15, 23, 42, 0.04);
+    --glass-shadow: 0 20px 40px -15px rgba(15, 23, 42, 0.12), var(--glass-specular-inner);
+    --glass-shadow-sm: 0 8px 22px -6px rgba(15, 23, 42, 0.08), var(--glass-specular-inner);
+
+    --text-main: #090d16;
+    --text-secondary: #1e293b;
+    --text-sub: #334155;
+    --text-muted: #64748b;
+
+    --primary: #0284c7;
+    --primary-bright: #0369a1;
+    --primary-glow: rgba(2, 132, 199, 0.14);
+    --accent: #4f46e5;
+    --liquid-blue: linear-gradient(135deg, #0284c7 0%, #2563eb 55%, #4f46e5 100%);
+    --liquid-emerald: linear-gradient(135deg, #059669 0%, #047857 100%);
+    --liquid-rose: linear-gradient(135deg, #e11d48 0%, #be123c 100%);
+    --liquid-amber: linear-gradient(135deg, #d97706 0%, #b45309 100%);
+
+    --success: #047857;
+    --success-bg: rgba(16, 185, 129, 0.16);
+    --warning: #b45309;
+    --warning-bg: rgba(245, 158, 11, 0.18);
+    --danger: #be123c;
+    --danger-bg: rgba(244, 63, 94, 0.16);
+}
+
+*, *::before, *::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    font-family: 'Vazirmatn', -apple-system, BlinkMacSystemFont, 'Segoe UI', Tahoma, sans-serif;
+    -webkit-font-smoothing: antialiased;
+}
+
+body {
+    background-color: var(--bg-base);
+    background-image: var(--bg-mesh);
+    color: var(--text-main);
+    display: flex;
+    height: 100vh;
+    overflow: hidden;
+    position: relative;
+}
+
+/* گوی‌های نوری شناور در پس‌زمینه برای شکست نور واقعی در شیشه مایع */
+body::before,
+body::after {
+    content: "";
+    position: fixed;
+    border-radius: 50%;
+    filter: blur(85px);
+    z-index: 0;
+    pointer-events: none;
+    animation: ambientFloat 16s ease-in-out infinite alternate;
+}
+
+body::before {
+    width: 440px;
+    height: 440px;
+    background: radial-gradient(circle, rgba(56, 189, 248, 0.18), transparent 70%);
+    top: -100px;
+    right: 15%;
+}
+
+body::after {
+    width: 500px;
+    height: 500px;
+    background: radial-gradient(circle, rgba(99, 102, 241, 0.16), transparent 70%);
+    bottom: -140px;
+    left: 10%;
+    animation-delay: -8s;
+}
+
+@keyframes ambientFloat {
+    0% { transform: translate(0, 0) scale(1); }
+    100% { transform: translate(-40px, 30px) scale(1.12); }
+}
+
+/* ==================== اسکرول‌بار ظریف اپل ==================== */
+::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+::-webkit-scrollbar-track {
+    background: transparent;
+}
+::-webkit-scrollbar-thumb {
+    background: rgba(148, 163, 184, 0.3);
+    border-radius: 999px;
+}
+::-webkit-scrollbar-thumb:hover {
+    background: var(--primary);
+}
+
+/* ==================== انیمیشن‌های سیال ==================== */
+@keyframes liquidReveal {
+    from {
+        opacity: 0;
+        transform: translateY(12px) scale(0.99);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+@keyframes pulseGlow {
+    0%, 100% {
+        box-shadow: 0 0 0 0 rgba(52, 211, 153, 0.6);
+        transform: scale(1);
+    }
+    50% {
+        box-shadow: 0 0 0 6px rgba(52, 211, 153, 0);
+        transform: scale(1.15);
+    }
+}
+
+@keyframes highlightFlash {
+    0% { box-shadow: 0 0 0 0 rgba(56, 189, 248, 0.85); }
+    100% { box-shadow: 0 0 0 14px rgba(56, 189, 248, 0); }
+}
+
+.input-flash {
+    animation: highlightFlash 0.85s ease-out;
+}
+
+/* ==================== نوتیفیکیشن کپسولی (Dynamic Island Toast) ==================== */
+#toast-container {
+    position: fixed;
+    top: 20px;
+    left: 24px;
+    z-index: 9999;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    max-width: 390px;
+    pointer-events: none;
+}
+
+.toast {
+    background: var(--glass-modal);
+    backdrop-filter: blur(35px) saturate(200%);
+    -webkit-backdrop-filter: blur(35px) saturate(200%);
+    border: 1px solid var(--glass-border);
+    border-right: 4px solid var(--primary);
+    padding: 13px 18px;
+    border-radius: 18px;
+    box-shadow: var(--glass-shadow);
+    color: var(--text-main);
+    font-size: 0.86rem;
+    font-weight: 600;
+    pointer-events: auto;
+    animation: liquidReveal 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.toast.toast-error {
+    border-right-color: var(--danger);
+}
+
+.toast.toast-success {
+    border-right-color: var(--success);
+}
+
+/* ==================== پنجره ورود شیشه‌ای (Liquid Glass Lock Screen) ==================== */
+#auth-overlay {
+    position: fixed;
+    inset: 0;
+    background: radial-gradient(circle at 50% 30%, rgba(14, 165, 233, 0.16), rgba(3, 7, 18, 0.88) 72%);
+    backdrop-filter: blur(28px) saturate(180%);
+    -webkit-backdrop-filter: blur(28px) saturate(180%);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 5000;
+    padding: 20px;
+}
+
+.auth-card {
+    background: var(--glass-surface);
+    backdrop-filter: blur(45px) saturate(200%);
+    -webkit-backdrop-filter: blur(45px) saturate(200%);
+    border: 1px solid var(--glass-border-strong);
+    border-radius: 28px;
+    padding: 36px 34px;
+    width: 500px;
+    max-width: 96vw;
+    box-shadow: var(--glass-shadow), 0 0 80px rgba(14, 165, 233, 0.15);
+    animation: liquidReveal 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.auth-logo {
+    width: 62px;
+    height: 62px;
+    border-radius: 20px;
+    background: var(--liquid-blue);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 16px;
+    font-size: 1.75rem;
+    color: #fff;
+    font-weight: 800;
+    box-shadow: 0 10px 25px rgba(14, 165, 233, 0.4), inset 0 1px 1px rgba(255, 255, 255, 0.45);
+}
+
+.auth-title {
+    text-align: center;
+    color: var(--text-main);
+    font-size: 1.35rem;
+    font-weight: 800;
+    margin-bottom: 6px;
+}
+
+.auth-subtitle {
+    text-align: center;
+    color: var(--text-sub);
+    font-size: 0.82rem;
+    margin-bottom: 24px;
+}
+
+.auth-error {
+    background: var(--danger-bg);
+    border: 1px solid var(--danger);
+    color: var(--text-main);
+    padding: 11px 14px;
+    border-radius: 14px;
+    font-size: 0.84rem;
+    margin-bottom: 16px;
+    display: none;
+    text-align: center;
+    font-weight: 600;
+}
+
+.demo-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-top: 12px;
+}
+
+.demo-chip {
+    background: var(--glass-card);
+    border: 1px solid var(--glass-border);
+    color: var(--text-main);
+    padding: 10px 13px;
+    border-radius: 14px;
+    font-size: 0.81rem;
+    font-weight: 600;
+    cursor: pointer;
+    text-align: right;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    box-shadow: var(--glass-specular-inner);
+    transition: all 0.22s ease;
+}
+
+.demo-chip:hover {
+    border-color: var(--primary);
+    background: var(--primary-glow);
+    transform: translateY(-2px);
+}
+
+.demo-num {
+    background: var(--liquid-blue);
+    color: #fff;
+    font-weight: 700;
+    padding: 3px 9px;
+    border-radius: 9px;
+    font-size: 0.73rem;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35);
+}
+
+/* ==================== نوار کناری شناور (iOS 26 Floating Glass Sidebar) ==================== */
+aside {
+    width: 276px;
+    margin: 14px 14px 14px 0;
+    border-radius: 24px;
+    background: var(--glass-surface);
+    backdrop-filter: blur(40px) saturate(200%);
+    -webkit-backdrop-filter: blur(40px) saturate(200%);
+    border: 1px solid var(--glass-border);
+    box-shadow: var(--glass-shadow);
+    display: flex;
+    flex-direction: column;
+    z-index: 10;
+    flex-shrink: 0;
+}
+
+.sidebar-brand {
+    padding: 22px 20px;
+    border-bottom: 1px solid var(--glass-border);
+    display: flex;
+    align-items: center;
+    gap: 14px;
+}
+
+.brand-icon {
+    width: 44px;
+    height: 44px;
+    border-radius: 14px;
+    background: var(--liquid-blue);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+    font-weight: 800;
+    font-size: 1.3rem;
+    box-shadow: 0 8px 20px rgba(14, 165, 233, 0.35), inset 0 1px 1px rgba(255, 255, 255, 0.45);
+}
+
+.nav-list {
+    padding: 16px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    flex: 1;
+}
+
+.nav-btn {
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 16px;
+    padding: 13px 16px;
+    text-align: right;
+    color: var(--text-sub);
+    cursor: pointer;
+    width: 100%;
+    font-size: 0.9rem;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.nav-btn:hover {
+    background: rgba(255, 255, 255, 0.06);
+    border-color: var(--glass-border);
+    color: var(--text-main);
+    transform: translateX(-3px);
+}
+
+.nav-btn.active {
+    background: var(--liquid-blue);
+    color: #ffffff;
+    font-weight: 700;
+    border-color: rgba(255, 255, 255, 0.28);
+    box-shadow: 0 10px 24px -4px rgba(14, 165, 233, 0.45), inset 0 1px 1px rgba(255, 255, 255, 0.4);
+}
+
+.sidebar-footer {
+    padding: 15px 18px;
+    border-top: 1px solid var(--glass-border);
+    font-size: 0.76rem;
+    font-weight: 600;
+    color: var(--text-sub);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--success);
+    display: inline-block;
+    margin-left: 7px;
+    animation: pulseGlow 2s infinite;
+}
+
+/* ==================== فضای کاری اصلی (Main Workspace) ==================== */
+main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+    padding: 14px 20px 18px 20px;
+    gap: 16px;
+    z-index: 5;
+    min-width: 0;
+}
+
+header {
+    background: var(--glass-surface);
+    backdrop-filter: blur(35px) saturate(190%);
+    -webkit-backdrop-filter: blur(35px) saturate(190%);
+    border: 1px solid var(--glass-border);
+    border-radius: 22px;
+    padding: 12px 18px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
+    box-shadow: var(--glass-shadow-sm);
+}
+
+.quick-switch-bar {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+    background: var(--glass-well);
+    padding: 5px 10px;
+    border-radius: 14px;
+    border: 1px solid var(--glass-border);
+}
+
+.qs-btn {
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid var(--glass-border);
+    color: var(--text-secondary);
+    padding: 5px 11px;
+    border-radius: 10px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.qs-btn:hover {
+    border-color: var(--primary);
+    color: #fff;
+    background: var(--liquid-blue);
+    transform: translateY(-1px);
+}
+
+.header-right {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.role-tag {
+    background: var(--primary-glow);
+    border: 1px solid var(--glass-border-strong);
+    color: var(--primary-bright);
+    padding: 5px 13px;
+    border-radius: 999px;
+    font-size: 0.76rem;
+    font-weight: 700;
+    box-shadow: var(--glass-specular-top);
+}
+
+/* ==================== نوار گام‌های گردش کار (Liquid Stepper) ==================== */
+.workflow-stepper {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 12px;
+}
+
+.step-item {
+    background: var(--glass-surface);
+    backdrop-filter: blur(28px) saturate(180%);
+    -webkit-backdrop-filter: blur(28px) saturate(180%);
+    border: 1px solid var(--glass-border);
+    border-radius: 18px;
+    padding: 13px 16px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    cursor: pointer;
+    box-shadow: var(--glass-shadow-sm);
+    transition: all 0.25s ease;
+}
+
+.step-item:hover {
+    border-color: var(--glass-border-strong);
+    background: var(--glass-card-hover);
+    transform: translateY(-2px);
+}
+
+.step-num {
+    width: 36px;
+    height: 36px;
+    border-radius: 12px;
+    background: var(--liquid-blue);
+    color: #ffffff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 800;
+    font-size: 0.95rem;
+    flex-shrink: 0;
+    box-shadow: 0 6px 14px rgba(14, 165, 233, 0.35), inset 0 1px 1px rgba(255, 255, 255, 0.4);
+}
+
+.step-info h5 {
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: var(--text-main);
+}
+
+.step-info p {
+    font-size: 0.73rem;
+    color: var(--text-sub);
+    margin-top: 2px;
+}
+
+/* ==================== پنل‌ها و کارت‌های شیشه‌ای (Liquid Glass Cards) ==================== */
+.section-panel {
+    display: none;
+    background: var(--glass-surface);
+    backdrop-filter: blur(40px) saturate(190%);
+    -webkit-backdrop-filter: blur(40px) saturate(190%);
+    border: 1px solid var(--glass-border);
+    border-radius: 24px;
+    padding: 24px;
+    box-shadow: var(--glass-shadow);
+}
+
+.section-panel.active {
+    display: block;
+    animation: liquidReveal 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.sub-box {
+    background: var(--glass-card);
+    backdrop-filter: blur(25px);
+    -webkit-backdrop-filter: blur(25px);
+    border: 1px solid var(--glass-border);
+    border-radius: 20px;
+    padding: 20px;
+    margin-top: 18px;
+    box-shadow: var(--glass-shadow-sm);
+    transition: border-color 0.25s ease;
+}
+
+.sub-box:hover {
+    border-color: rgba(56, 189, 248, 0.3);
+}
+
+.sub-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+h3 {
+    font-size: 1.15rem;
+    font-weight: 800;
+    color: var(--text-main);
+}
+
+h4 {
+    font-size: 0.96rem;
+    font-weight: 700;
+    color: var(--text-main);
+}
+
+/* ==================== فرم‌ها و کپسول یکپارچه استعلام (رفع قطعی باگ اورفلو) ==================== */
+.form-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 16px;
+    margin-bottom: 16px;
+    align-items: end;
+}
+
+.form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+    min-width: 0; /* جلوگیری مطلق از بیرون زدن آیتم‌ها در CSS Grid */
+}
+
+label {
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: var(--text-secondary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+input, select, textarea {
+    width: 100%;
+    min-width: 0;
+    background: var(--glass-well);
+    border: 1px solid var(--glass-border);
+    color: var(--text-main);
+    padding: 10px 14px;
+    border-radius: 14px;
+    outline: none;
+    font-size: 0.88rem;
+    font-weight: 500;
+    box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.35), 0 1px 0 rgba(255, 255, 255, 0.05);
+    transition: all 0.2s ease;
+}
+
+input::placeholder, textarea::placeholder {
+    color: var(--text-muted);
+}
+
+input:focus, select:focus, textarea:focus {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px var(--primary-glow), inset 0 2px 4px rgba(0, 0, 0, 0.35);
+}
+
+/* کپسول یکپارچه کد ملی + دکمه استعلام (به سبک آدرس‌بار Safari در iOS 26) */
+.liquid-input-group {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    min-width: 0;
+    background: var(--glass-well);
+    border: 1px solid var(--glass-border);
+    border-radius: 14px;
+    padding: 3px 4px 3px 4px;
+    box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.35);
+    transition: all 0.2s ease;
+}
+
+.liquid-input-group:focus-within {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px var(--primary-glow), inset 0 2px 4px rgba(0, 0, 0, 0.35);
+}
+
+.liquid-input-group input {
+    border: none !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    padding: 7px 10px;
+    flex: 1;
+    min-width: 0;
+}
+
+.liquid-input-group .inline-glass-btn {
+    flex-shrink: 0;
+    background: var(--liquid-blue);
+    color: #ffffff;
+    border: none;
+    padding: 7px 13px;
+    border-radius: 10px;
+    font-size: 0.76rem;
+    font-weight: 700;
+    cursor: pointer;
+    box-shadow: 0 4px 12px rgba(14, 165, 233, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.35);
+    transition: all 0.2s ease;
+    margin: 0;
+}
+
+.liquid-input-group .inline-glass-btn:hover {
+    filter: brightness(1.12);
+    transform: scale(1.02);
+}
+
+/* ==================== دکمه‌های شیشه مایع (Liquid Tactile Buttons) ==================== */
+button.action-btn {
+    background: var(--liquid-blue);
+    color: #ffffff;
+    border: 1px solid rgba(255, 255, 255, 0.24);
+    padding: 10px 20px;
+    border-radius: 14px;
+    font-weight: 700;
+    cursor: pointer;
+    font-size: 0.86rem;
+    transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+    box-shadow: 0 8px 20px -4px rgba(14, 165, 233, 0.4), inset 0 1px 1px rgba(255, 255, 255, 0.4);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+}
+
+button.action-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 12px 26px -4px rgba(14, 165, 233, 0.55), inset 0 1px 1px rgba(255, 255, 255, 0.5);
+    filter: brightness(1.08);
+}
+
+button.action-btn:active {
+    transform: translateY(0) scale(0.98);
+}
+
+button.btn-danger {
+    background: var(--liquid-rose);
+    box-shadow: 0 8px 20px -4px rgba(244, 63, 94, 0.4), inset 0 1px 1px rgba(255, 255, 255, 0.35);
+}
+
+button.btn-success {
+    background: var(--liquid-emerald);
+    box-shadow: 0 8px 20px -4px rgba(16, 185, 129, 0.4), inset 0 1px 1px rgba(255, 255, 255, 0.35);
+}
+
+button.btn-secondary {
+    background: var(--glass-card);
+    color: var(--text-main);
+    border: 1px solid var(--glass-border);
+    box-shadow: var(--glass-specular-inner);
+}
+
+button.btn-secondary:hover {
+    border-color: var(--primary);
+    background: var(--primary-glow);
+    box-shadow: 0 6px 16px rgba(14, 165, 233, 0.2), var(--glass-specular-inner);
+}
+
+button.btn-sm {
+    padding: 6px 13px;
+    font-size: 0.77rem;
+    border-radius: 11px;
+    margin-left: 4px;
+}
+
+/* ==================== چیپ‌های نسخه آماده ==================== */
+.template-chips {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-bottom: 16px;
+}
+
+.tpl-chip {
+    background: var(--primary-glow);
+    border: 1px solid var(--glass-border-strong);
+    color: var(--text-main);
+    padding: 6px 14px;
+    border-radius: 999px;
+    font-size: 0.77rem;
+    font-weight: 600;
+    cursor: pointer;
+    box-shadow: var(--glass-specular-top);
+    transition: all 0.2s ease;
+}
+
+.tpl-chip:hover {
+    background: var(--liquid-blue);
+    color: #fff;
+    transform: translateY(-2px);
+}
+
+/* ==================== کارت‌های شاخص مالی (Liquid KPI Widgets) ==================== */
+.kpi-container {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(175px, 1fr));
+    gap: 14px;
+    margin-bottom: 18px;
+}
+
+.kpi-card {
+    background: var(--glass-card);
+    backdrop-filter: blur(25px);
+    border: 1px solid var(--glass-border);
+    border-radius: 18px;
+    padding: 16px 18px;
+    box-shadow: var(--glass-shadow-sm);
+    transition: transform 0.25s ease, border-color 0.25s ease;
+}
+
+.kpi-card:hover {
+    transform: translateY(-3px);
+    border-color: var(--glass-border-strong);
+}
+
+.kpi-title {
+    font-size: 0.77rem;
+    font-weight: 600;
+    color: var(--text-sub);
+    margin-bottom: 8px;
+}
+
+.kpi-value {
+    font-size: 1.25rem;
+    font-weight: 800;
+    color: var(--text-main);
+}
+
+.method-bars {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+    gap: 12px;
+    margin-top: 12px;
+}
+
+.method-bar-item {
+    background: var(--glass-well);
+    padding: 13px 15px;
+    border-radius: 15px;
+    border: 1px solid var(--glass-border);
+    box-shadow: var(--glass-specular-top);
+}
+
+.method-bar-top {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--text-main);
+    margin-bottom: 9px;
+}
+
+.progress-track {
+    height: 8px;
+    background: rgba(148, 163, 184, 0.15);
+    border-radius: 999px;
+    overflow: hidden;
+}
+
+.progress-fill {
+    height: 100%;
+    background: var(--liquid-blue);
+    width: 0%;
+    border-radius: 999px;
+    box-shadow: 0 0 12px rgba(56, 189, 248, 0.6);
+    transition: width 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* ==================== جداول و بج‌های شیشه‌ای ==================== */
+.table-wrap {
+    overflow-x: auto;
+    border-radius: 14px;
+    border: 1px solid var(--glass-border);
+    background: rgba(6, 10, 22, 0.35);
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+    text-align: right;
+}
+
+th, td {
+    padding: 13px 15px;
+    border-bottom: 1px solid var(--glass-border);
+    font-size: 0.85rem;
+    color: var(--text-main);
+    vertical-align: middle;
+}
+
+th {
+    color: var(--text-secondary);
+    font-weight: 700;
+    font-size: 0.79rem;
+    background: rgba(255, 255, 255, 0.04);
+}
+
+tbody tr {
+    transition: background-color 0.18s ease;
+}
+
+tbody tr:hover {
+    background-color: var(--primary-glow);
+}
+
+.badge {
+    padding: 4px 11px;
+    border-radius: 999px;
+    font-size: 0.73rem;
+    font-weight: 700;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    box-shadow: var(--glass-specular-top);
+}
+
+.badge-warning {
+    background: var(--warning-bg);
+    color: var(--warning);
+    border: 1px solid rgba(245, 158, 11, 0.45);
+}
+
+.badge-success {
+    background: var(--success-bg);
+    color: var(--success);
+    border: 1px solid rgba(16, 185, 129, 0.45);
+}
+
+.badge-danger {
+    background: var(--danger-bg);
+    color: var(--danger);
+    border: 1px solid rgba(244, 63, 94, 0.45);
+}
+
+.badge-role {
+    background: var(--primary-glow);
+    color: var(--primary-bright);
+    border: 1px solid var(--glass-border-strong);
+}
+
+/* ==================== مدال‌های شیشه‌ای ==================== */
+.modal-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(3, 7, 18, 0.76);
+    backdrop-filter: blur(18px) saturate(180%);
+    -webkit-backdrop-filter: blur(18px) saturate(180%);
+    display: none;
+    justify-content: center;
+    align-items: center;
+    z-index: 6000;
+    padding: 20px;
+}
+
+.modal-card {
+    background: var(--glass-modal);
+    backdrop-filter: blur(45px) saturate(200%);
+    border: 1px solid var(--glass-border-strong);
+    border-radius: 24px;
+    padding: 26px;
+    width: 100%;
+    max-width: 650px;
+    max-height: 86vh;
+    overflow-y: auto;
+    box-shadow: var(--glass-shadow);
+    animation: liquidReveal 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid var(--glass-border);
+    padding-bottom: 14px;
+    margin-bottom: 16px;
+}
+
+/* ==================== داک ترمینال زنده رخدادها (Apple Liquid Telemetry Dock) ==================== */
+.telemetry-dock {
+    margin-top: auto;
+    background: var(--glass-surface);
+    backdrop-filter: blur(40px) saturate(200%);
+    -webkit-backdrop-filter: blur(40px) saturate(200%);
+    border: 1px solid var(--glass-border);
+    border-radius: 20px;
+    box-shadow: var(--glass-shadow);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    flex-shrink: 0;
+}
+
+.telemetry-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 9px 16px;
+    background: rgba(255, 255, 255, 0.04);
+    border-bottom: 1px solid var(--glass-border);
+}
+
+.telemetry-title-group {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: var(--text-secondary);
+}
+
+.mac-dots {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+}
+
+.mac-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    display: inline-block;
+}
+.mac-dot.red { background: #ff5f56; box-shadow: 0 0 6px rgba(255, 95, 86, 0.5); }
+.mac-dot.yellow { background: #ffbd2e; box-shadow: 0 0 6px rgba(255, 189, 46, 0.5); }
+.mac-dot.green { background: #27c93f; box-shadow: 0 0 6px rgba(39, 201, 63, 0.5); }
+
+.telemetry-clear-btn {
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid var(--glass-border);
+    color: var(--text-sub);
+    padding: 3px 10px;
+    border-radius: 999px;
+    font-size: 0.72rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.telemetry-clear-btn:hover {
+    background: var(--primary-glow);
+    color: var(--text-main);
+    border-color: var(--primary);
+}
+
+#console-log {
+    padding: 10px 14px;
+    min-height: 82px;
+    max-height: 120px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.log-line {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 6px 12px;
+    border-radius: 11px;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    font-size: 0.81rem;
+    font-weight: 500;
+    animation: liquidReveal 0.25s ease-out;
+}
+
+.log-time-pill {
+    font-family: 'Consolas', monospace;
+    font-size: 0.73rem;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 7px;
+    background: rgba(255, 255, 255, 0.08);
+    color: var(--text-secondary);
+    direction: ltr;
+    flex-shrink: 0;
+}
+
+.log-status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+.log-ok {
+    color: var(--text-main);
+    border-right: 3px solid var(--success);
+}
+.log-ok .log-status-dot {
+    background: var(--success);
+    box-shadow: 0 0 8px var(--success);
+}
+
+.log-err {
+    color: #ffe4e6;
+    background: rgba(244, 63, 94, 0.12);
+    border-color: rgba(244, 63, 94, 0.28);
+    border-right: 3px solid var(--danger);
+}
+.log-err .log-status-dot {
+    background: var(--danger);
+    box-shadow: 0 0 8px var(--danger);
+}
+</file>
+
+<file path="src/main/resources/application.properties">
+# ==================== Zero-Config LAN/WLAN Server ====================
+server.address=0.0.0.0
+server.port=${SERVER_PORT:8443}
+server.ssl.enabled=${CLINIC_SSL_ENABLED:true}
+server.ssl.key-store=file:data/clinic-keystore.p12
+server.ssl.key-store-password=ClinicSSL@2026
+server.ssl.key-store-type=PKCS12
+server.ssl.key-alias=clinic-lan-ssl
+server.ssl.enabled-protocols=TLSv1.3,TLSv1.2
+
+server.servlet.encoding.charset=UTF-8
+server.servlet.encoding.enabled=true
+server.servlet.encoding.force=true
+server.tomcat.threads.max=200
+server.tomcat.accept-count=100
+
+# ==================== Session & Cookie Security (LAN Compatible) ====================
+server.servlet.session.timeout=30m
+server.servlet.session.cookie.http-only=true
+server.servlet.session.cookie.secure=false
+server.servlet.session.cookie.same-site=lax
+
+# ==================== Datasource & HikariCP Concurrency ====================
+spring.datasource.url=${CLINIC_DB_URL:jdbc:h2:file:./data/clinic_v4_db;DB_CLOSE_DELAY=-1}
+spring.datasource.driverClassName=org.h2.Driver
+spring.datasource.username=${CLINIC_DB_USER:sa}
+spring.datasource.password=${CLINIC_DB_PASSWORD:}
+spring.datasource.hikari.maximum-pool-size=20
+spring.datasource.hikari.minimum-idle=5
+spring.datasource.hikari.connection-timeout=20000
+
+# ==================== JPA & Hibernate ====================
+spring.jpa.database-platform=org.hibernate.dialect.H2Dialect
+spring.jpa.hibernate.ddl-auto=update
+spring.jpa.show-sql=false
+spring.jpa.open-in-view=false
+
+# ==================== H2 Console (Restricted to SUPER_ADMIN) ====================
+spring.h2.console.enabled=true
+spring.h2.console.path=/h2-console
+spring.h2.console.settings.web-allow-others=false
+
+# ==================== Clinic Custom Operational & LAN Flags ====================
+clinic.browser.auto-open=${CLINIC_AUTO_OPEN_BROWSER:true}
+clinic.security.seed-demo-users=${CLINIC_SEED_DEMO_USERS:true}
+clinic.security.reset-existing-passwords=${CLINIC_RESET_PASSWORDS:false}
+clinic.security.bootstrap-admin-password=${CLINIC_ADMIN_PASSWORD:Admin@123}
+clinic.network.allowed-subnet-prefix=
+clinic.audit.lock-timeout-ms=10000
+</file>
+
+</files>
